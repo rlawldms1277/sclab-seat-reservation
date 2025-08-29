@@ -371,6 +371,44 @@ function bindActions() {
       }
     }
 
+
+        // --- 검증 및 디버그 로그 추가 (아래를 "// 서버 예약 요청" 바로 위에 붙여넣으세요) ---
+    // selHour 가 정상인지 확인
+    if (selHour === null || Number.isNaN(selHour)) {
+      console.error("예약 실패: selHour invalid", { stateTime: state.time, selHour });
+      alert("예약 실패: 선택한 시간이 올바르지 않습니다.");
+      return;
+    }
+
+    // seatId가 숫자가 아닌 경우(예: fixed1) 서버에서 거절될 수 있으므로 차단
+    const seatNum = Number(state.seat);
+    if (Number.isNaN(seatNum)) {
+      console.error("예약 실패: seat id is not numeric", { seat: state.seat });
+      alert("예약 실패: 선택한 좌석은 예약할 수 없습니다.");
+      return;
+    }
+
+    // start/end 값 확인 (ISO 문자열로)
+    console.log("예약 요청 준비", {
+      seat: state.seat,
+      seatNum,
+      startISO: start.toISOString(),
+      endISO: end.toISOString(),
+      start,
+      end
+    });
+
+    // 서버에 보낼 직전 최종 검사: end가 start보다 커야 함
+    if (end.getTime() <= start.getTime()) {
+      console.error("예약 실패: end <= start", { start, end });
+      alert("예약 실패: 종료 시간이 시작 시간보다 빠릅니다.");
+      return;
+    }
+    // --- 여기까지 ---
+
+
+
+
     // 서버 예약 요청
     const apiResult = await apiCreateReservation({
       seat: state.seat,
