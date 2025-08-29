@@ -186,6 +186,13 @@ async function refreshReservationsForRoom(room) {
   updateSeatUI(room);
 
   renderTimeStatusForSeat(state.seat);
+
+  applyLocalMyReservation();
+
+  // 서버에서 받아온 reservations를 로컬에 저장 (폴백)
+  try {
+    saveLocalReservations(state.reservations);
+  } catch (e) {}
 }
 
 function updateSeatUI(room) {
@@ -216,6 +223,45 @@ function updateSeatUI(room) {
     }
   });
 }
+
+
+// ----------------- 로컬 체크인(또는 폴백) UI 반영 -----------------
+function applyLocalMyReservation() {
+  try {
+    const myRes = JSON.parse(localStorage.getItem("myReservation") || "null");
+    if (!myRes || !myRes.seat || !myRes.room) return;
+    // 현재 보고 있는 방과 다르면 무시
+    if (String(myRes.room) !== String(state.room)) return;
+
+    // 좌석 DOM 찾기 및 used 표시
+    const seatEl = document.querySelector(`#room-${state.room} .seat[data-seat-id="${String(myRes.seat)}"]`);
+    if (seatEl) {
+      seatEl.classList.remove("available");
+      seatEl.classList.add("used");
+    }
+
+    // 시간 버튼도 start/end 기준으로 done 표시
+    const start = myRes.startTime ? new Date(myRes.startTime) : null;
+    const end = myRes.endTime ? new Date(myRes.endTime) : null;
+    if (start && end) {
+      $$(".time-grid button").forEach(btn => {
+        const h = hourFromLabel(btn.textContent);
+        if (h === null) return;
+        let endExclusive = end.getHours();
+        if (end.getMinutes() > 0 || end.getSeconds() > 0 || end.getMilliseconds() > 0) endExclusive++;
+        if (h >= start.getHours() && h < endExclusive) {
+          btn.classList.remove("reserved");
+          btn.classList.add("done");
+          btn.disabled = true;
+        }
+      });
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+
 
 
 // ----------------- 좌석/시간 선택 -----------------
@@ -314,6 +360,23 @@ function bindActions() {
     if (apiResult.ok) {
       const rec = normalizeReservationRaw(apiResult.rec);
       if (rec.id) localStorage.setItem("lastReservationId", rec.id);
+      
+      // 서버 응답 기반으로 최근 좌석/방 정보 저장 (entering에서 사용)
+      if (rec.room) localStorage.setItem("lastSeatRoom", String(rec.room));
+      if (rec.seat) localStorage.setItem("lastSeat", String(rec.seat));
+
+      // (선택적) myReservation 임시 저장 — 서버 반영 전 UI 테스트용
+      localStorage.setItem("myReservation", JSON.stringify({
+        id: rec.id || null,
+        room: rec.room || localStorage.getItem("lastSeatRoom") || state.room,
+        seat: rec.seat || localStorage.getItem("lastSeat") || state.seat,
+        status: rec.status || "PENDING",
+        startTime: rec.startTime || start.toISOString(),
+        endTime: rec.endTime || end.toISOString(),
+        pin: apiResult.pin || rec.pin || null
+      }));
+
+
 
       await refreshReservationsForRoom(state.room);
       const pin = apiResult.pin || rec.pin || "UNKNOWN";
@@ -341,6 +404,10 @@ function init() {
 
   bindActions();
   refreshReservationsForRoom(state.room);
+
+  // 30초마다 최신화
+  setInterval(() => refreshReservationsForRoom(state.room), 30 * 1000);
+
 }
 
 document.addEventListener("DOMContentLoaded", init);
