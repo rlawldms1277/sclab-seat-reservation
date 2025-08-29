@@ -1,0 +1,382 @@
+/* 공통 */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: #fff;
+  color: #000;
+}
+
+.navbar {
+  height: 150px;                 /* ✅ 원하는 고정 높이 */
+  background: #000;               /* 검은색 */
+  color: #fff;                    /* 글자 흰색 */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;            /* ✅ 세로 가운데 정렬 */
+  padding: 0 40px;                /* ✅ 좌우 여백만 */
+  box-sizing: border-box;
+}
+
+.logo {
+  font-family: "Abhaya Libre ExtraBold", serif;
+  font-size: 48px;
+  font-weight: 800;
+}
+
+.navbar nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.navbar nav a {
+  color: var(--white);
+  text-decoration: none;
+  font-size: 16px;
+}
+
+.navbar .divider {
+  color: var(--white);
+  opacity: .8;
+}
+
+/* 페이지 레이아웃 */
+.seat-page {
+  padding: 24px;
+  margin-top: 70px;
+}
+
+.top-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.top-row .title-chip:last-child {
+  justify-self: end;     /* 기준은 가운데 */
+  margin-right: 40px;    /* 👉 원하는 만큼 왼쪽으로 당기기 */
+}
+
+.title-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 22px;
+  font-weight: 800;
+  background: #eaeaea;
+  width: 160px;
+}
+
+.title-chip.blue {
+  background: #cfeaff;
+}
+
+.room-tabs {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-start;
+}
+
+.room-btn {
+  background: #bdbdbd;
+  border: none;
+  padding: 10px 22px;
+  border-radius: 50px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.room-btn.active {
+  background: #a5a5a5;
+}
+
+/* 본문 그리드 */
+.grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+}
+
+/* 좌석 영역 공통 */
+.room-wrap {
+  background: #f0f0f0;
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.room {
+  display: none;
+}
+
+.room.active {
+  display: block;
+}
+
+.room-canvas {
+  position: relative;
+  width: 700px;   /* 👈 가로 크기 고정 */
+  height: 380px;  /* 세로 크기는 유지 */
+  background: #fff;
+  border-radius: 8px;
+  border: 10px solid #2c7bd9;    /* 파란 벽 */
+  outline: 13px solid #d6d6d6;   /* 바깥 회색 벽 */
+  margin: 0 auto;                /* 가운데 정렬 */
+}
+
+/* 벽 내부 채움(시안 느낌용) */
+.wall {
+  position: absolute;
+  inset: 8px;
+  border-radius: 2px;
+}
+
+/* 문 (하단 파란 바) */
+.door {
+  position: absolute;
+  bottom: -2px;
+  left: 260px;
+  width: 120px;
+  height: 18px;
+  background: #2c7bd9;
+  border-radius: 4px;
+}
+
+/* 구분 라인(907 시안의 검은 선) */
+.divider-line {
+  position: absolute;
+  height: 3px;
+  background: #111;
+  border-radius: 2px;
+}
+
+/* 좌석 */
+.seat {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-weight: 800;
+  cursor: pointer;
+  user-select: none;
+}
+
+.seat.available {
+  background: #8fd3ff;
+  color: #0a0a0a;
+}
+
+.seat.used {
+  background: #bdbdbd;
+  color: #fff;
+}
+
+.seat.selected {
+  outline: 4px solid #1565d8;
+}
+
+/* 고정석 라벨 */
+.fixed-chip {
+  position: absolute;
+  background: #c9c9c9;
+  color: #111;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+/* 범례 */
+.legend {
+  margin-top: 30px;
+  font-size: 14px;
+  color: #555;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: center;
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 6px;
+}
+
+.dot.reserved { background: #4caf50; }  /* 예약 중 */
+.dot.available { background: #9e9e9e; } /* 예약 가능 */
+.dot.done { background: #e40000; }      /* 예약 완료 */
+.dot.used { background: #9e9e9e; }      /* 사용 중 */
+.dot.free { background: #8fd3ff; }      /* 사용 가능 */
+
+/* 시간 버튼: 예약중 */
+.time-grid button.reserved {
+  background: #4caf50;
+  color: #fff;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* 시간 버튼: 예약 완료 */
+.time-grid button.done {
+  background: #e40000;
+  color: #fff;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* 시간 버튼: 사용자가 선택 */
+.time-grid button.picked {
+  outline: 3px solid #1565d8;
+  background: #1565d8;
+  color: #fff;
+}
+
+/* 예약중/완료 상태일 때 호버 이펙트 제거 */
+.time-grid button.reserved:hover,
+.time-grid button.done:hover,
+.time-grid button.picked:hover {
+  filter: none;
+}
+
+/* 시간 패널 */
+.time-panel {
+  background: #f7f7f7;
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.panel-title {
+  margin: 0 0 12px 0;
+  text-align: center;
+  background: #cfeaff;
+  height: 44px;
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+
+.time-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.time-grid button {
+  background: #bdbdbd;
+  border: none;
+  padding: 14px 0;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.time-grid button:hover {
+  filter: brightness(.9);
+}
+
+.legend-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 20px;
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+/* 하단 버튼 */
+.actions {
+  margin-top: 24px;
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+}
+
+.action-btn {
+  background: #000;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 14px 46px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.action-btn:hover {
+  background: #333;
+}
+
+/* 언어 전환 버튼 */
+.lang-switch {
+  display: flex;
+  margin-bottom: 10px;
+}
+
+/* 언어 전환 버튼 (자리 선택 위 왼쪽) */
+.lang-switch-left {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 10px;
+}
+
+.lang-switch-left button {
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.lang-switch-left button:hover {
+  background: #f0f0f0;
+}
+
+.user-info {
+  color: #fff;
+  font-weight: 700;
+  margin-left: auto;
+  font-size: 14px;
+}
+
+.user-info a {
+  color: #fff;
+  text-decoration: underline;
+  cursor: pointer;
+  margin-left: 6px;
+}
+
+/* header 우측 박스: 위에 user-info, 아래에 nav */
+.right-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+/* 우측 네비(메뉴) */
+.main-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 반응형 */
+@media (max-width: 980px) {
+  .grid { grid-template-columns: 1fr; }
+}

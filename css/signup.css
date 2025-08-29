@@ -1,0 +1,117 @@
+/* 전체 레이아웃 */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', sans-serif;
+  background: #fff;
+  color: #000;
+}
+
+/* 헤더 */
+/* 상단 네비게이션 (검은 바) */
+.navbar {
+  height: 150px;                 /* ✅ 원하는 고정 높이 */
+  background: #000;             /* 검은색 */
+  color: #fff;                  /* 글자 흰색 */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;          /* ✅ 세로 가운데 정렬 */
+  padding: 0 40px;              /* ✅ 좌우 여백만 */
+  box-sizing: border-box;
+}
+
+.logo{
+  font-family: "Abhaya Libre ExtraBold", serif;
+  font-size:48px;
+  font-weight:800;
+}
+.navbar nav{
+  display:flex; align-items:center;
+  gap:16px; margin-bottom:10px;
+}
+.navbar nav a{
+  color:var(--white);
+  text-decoration:none;
+  font-size:16px;
+}
+.navbar .divider{ color:var(--white); opacity:.8 }
+
+/* 회원가입 컨테이너 */
+.signup-container {
+  max-width: 600px;
+  margin: 60px auto;
+  padding: 40px;
+  background: #f9f9f9;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+.signup-container h2 {
+  font-size: 32px;
+  margin-bottom: 30px;
+  color: #444;
+  text-align: center;
+}
+
+/* 입력 폼 */
+.form-group {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+/* 버튼 */
+button {
+  width: 100%;
+  padding: 14px;
+  background: #000;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #333;
+}
+
+/* 언어 전환 버튼 */
+.lang-switch {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;  /* 가운데 정렬 */
+}
+
+.lang-switch button:hover {
+  filter: brightness(0.95);
+}
+
+.user-info {
+  color: #fff;
+  font-weight: 700;
+  margin-left: auto;
+  font-size: 14px;
+}
+.user-info a {
+  color: #fff;
+  text-decoration: underline;
+  cursor: pointer;
+  margin-left: 6px;
+}
+
+

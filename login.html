@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>로그인 - SCLab 자리 예약 시스템</title>
+  <link rel="stylesheet" href="css/login.css" />
+</head>
+<body>
+  <!-- 상단 네비게이션 -->
+  <header class="navbar">
+    <div class="logo">SClab</div>
+
+    <!-- 우측 컨트롤: 위 user-info, 아래 nav -->
+    <div class="right-controls">
+      <div class="user-info" id="user-info">
+        <!-- 로그인 시 JS에서 여기에 이름과 로그아웃 버튼 생성 -->
+      </div>
+
+      <nav class="main-nav">
+        <a href="index.html" data-i18n="main">Main</a>
+        <span class="divider">|</span>
+        <a href="entering.html" data-i18n="entering">입실</a>
+        <span class="divider">|</span>
+        <a href="viewseats.html" data-i18n="viewSeats">남은 좌석 확인</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- 본문 -->
+  <main class="login-wrap">
+    <h2 class="page-title" data-i18n="loginTitle">로그인</h2>
+
+    <!-- 안내 문구 -->
+    <p class="login-note" data-i18n="loginNote">
+      로그인 시 자리 선택 창으로 넘어갑니다.
+    </p>
+
+    <!-- 로그인 폼 -->
+    <form id="login-form" class="login-form">
+      <!-- ID -->
+      <div class="row">
+        <div class="label-pill">ID</div>
+        <div class="input-pill">
+          <input 
+            type="text" 
+            id="userId" 
+            placeholder="입력해주세요." 
+            required
+          />
+        </div>
+      </div>
+
+      <!-- PW -->
+      <div class="row">
+        <div class="label-pill">PW</div>
+        <div class="input-pill">
+          <input 
+            type="password" 
+            id="password" 
+            placeholder="입력해주세요." 
+            required
+          />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="btn-login" data-i18n="loginBtn">로그인</button>
+      </div>
+    </form>
+  </main>
+
+  <!-- 언어 전환 버튼 -->
+  <div style="text-align:center; margin-top:20px;">
+    <button id="btn-lang">English</button>
+  </div>
+
+  <!-- 로그인 스크립트 -->
+  <script src="js/login.js">
+    
+  </script>
+
+   <!-- ✅ user.js 불러오기 (공통 로그인 표시/로그아웃) -->
+  <script type="module">
+    import { renderLoggedInUser, requireLogin } from "./js/user.js";
+    import "./js/checkout.js";
+    import { showRemainingTime } from "./js/timer.js";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      requireLogin();       
+      renderLoggedInUser(); // ✅ 로그인 표시 (header 영역)
+
+      // ✅ 내 예약 불러오기
+      const myReservation = JSON.parse(localStorage.getItem("myReservation") || "null");
+      if (myReservation && myReservation.endTime) {
+        // checkout 페이지의 퇴실 폼 위에만 표시
+        showRemainingTime(myReservation, ".checkout-form");  
+      }
+    });
+  </script>
+
+</body>
+</html>

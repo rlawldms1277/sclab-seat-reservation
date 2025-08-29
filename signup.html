@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="title">회원가입 - SCLab 자리 예약 시스템</title>
+  <!-- CSS 연결 -->
+  <link rel="stylesheet" href="css/signup.css">
+</head>
+<body>
+  <!-- 상단 네비게이션 -->
+  <header class="navbar">
+    <div class="logo">SClab</div>
+
+    <!-- 우측 컨트롤: 위 user-info, 아래 nav -->
+    <div class="right-controls">
+      <div class="user-info" id="user-info">
+        <!-- 로그인 시 JS에서 여기에 이름과 로그아웃 버튼 생성 -->
+      </div>
+
+      <nav class="main-nav">
+        <a href="index.html" data-i18n="main">Main</a>
+        <span class="divider">|</span>
+        <a href="entering.html" data-i18n="enter">입실</a>
+        <span class="divider">|</span>
+        <a href="viewseats.html" data-i18n="viewSeats">남은 좌석 확인</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- 회원가입 폼 -->
+  <main class="signup-container">
+    <h2 data-i18n="signupTitle">회원가입</h2>
+
+    <form id="signup-form" action="#" method="post">
+      <div class="form-group">
+        <label data-i18n="name">이름</label>
+        <input type="text" placeholder="입력해주세요." data-i18n-placeholder="enterName">
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="studentId">학번</label>
+        <input type="text" placeholder="입력해주세요." data-i18n-placeholder="enterId">
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="email">메일</label>
+        <input type="email" placeholder="입력해주세요." data-i18n-placeholder="enterEmail">
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="course">과정</label>
+        <select>
+          <option value="professor" data-i18n="professor">교수님</option>
+          <option value="doctor" data-i18n="doctor">박사님</option>
+          <option value="phd" data-i18n="phd">박사과정</option>
+          <option value="master" data-i18n="master">석사과정</option>
+          <option value="undergrad" data-i18n="undergrad">학부연구생</option>
+        </select>
+
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="userId">ID</label>
+        <input type="text" placeholder="입력해주세요." data-i18n-placeholder="enterUserId">
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="pw">PW</label>
+        <input type="password" placeholder="입력해주세요." data-i18n-placeholder="enterPw">
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="pwConfirm">비밀번호 재입력</label>
+        <input type="password" placeholder="비밀번호 재입력." data-i18n-placeholder="reenterPw">
+      </div>
+
+      <button type="submit" class="btn" data-i18n="signupBtn">가입하기</button>
+    </form>
+
+    <!-- 언어 전환 버튼 -->
+    <div class="lang-switch">
+      <button id="btn-lang">English</button>
+    </div>
+  </main>
+
+  <!-- JS 연결 -->
+  <script src="js/signup.js"></script>
+
+  <!-- ✅ user.js 불러오기 (공통 로그인 표시/로그아웃) -->
+  <script type="module">
+    import { renderLoggedInUser, requireLogin } from "./js/user.js";
+    import "./js/checkout.js";
+    import { showRemainingTime } from "./js/timer.js";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      requireLogin();       
+      renderLoggedInUser(); // ✅ 로그인 표시 (header 영역)
+
+      // ✅ 내 예약 불러오기
+      const myReservation = JSON.parse(localStorage.getItem("myReservation") || "null");
+      if (myReservation && myReservation.endTime) {
+        // checkout 페이지의 퇴실 폼 위에만 표시
+        showRemainingTime(myReservation, ".checkout-form");  
+      }
+    });
+  </script>
+</body>
+</html>

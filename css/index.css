@@ -1,0 +1,92 @@
+/* 전체 화면 기본 세팅 */
+body, html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: Arial, sans-serif;
+  background: #000000; /* 전체 배경 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 컨테이너 */
+.container {
+  text-align: center;
+  color: white;
+  width: 100%;
+  max-width: 400px;
+}
+
+/* 제목 */
+h1 {
+  font-size: 48px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  letter-spacing: 10px; /* 글자 간격 */
+}
+
+/* 설명 텍스트 */
+p {
+  font-size: 16px;
+  margin-bottom: 40px;
+}
+
+/* 버튼 */
+button {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin: 10px auto;
+  background-color: #d9d9d9;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+button:hover {
+  background-color: #bfbfbf;
+}
+
+/* 언어 전환 버튼 */
+.lang-switch {
+  display: flex;
+  margin-bottom: 10px;
+}
+
+/* 언어 전환 버튼 (자리 선택 위 왼쪽) */
+.lang-switch-left {
+  display: flex;
+  justify-content: flex-start;  /* 왼쪽 정렬 */
+  margin-bottom: 10px;          /* 아래 간격 */
+}
+
+.lang-switch-left button {
+  /* 이전 버튼 모양 그대로 */
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.lang-switch-left button:hover {
+  background: #f0f0f0;
+}
+
+.user-info {
+  color: #fff;
+  font-weight: 700;
+  margin-left: auto;
+  font-size: 14px;
+}
+.user-info a {
+  color: #fff;
+  text-decoration: underline;
+  cursor: pointer;
+  margin-left: 6px;
+}

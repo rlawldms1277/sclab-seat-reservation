@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title data-i18n="title">좌석 현황 보기 - SCLab</title>
+  <link rel="stylesheet" href="css/viewseats.css" />
+</head>
+<body>
+  <!-- 헤더 -->
+  <header class="navbar">
+    <div class="logo">SClab</div>
+
+    <!-- 우측 컨트롤: 위 user-info, 아래 nav -->
+    <div class="right-controls">
+      <div class="user-info" id="user-info">
+        <!-- 로그인 시 JS에서 여기에 이름과 로그아웃 버튼 생성 -->
+      </div>
+
+      <nav class="main-nav">
+        <a href="index.html" data-i18n="main">Main</a>
+        <span class="divider">|</span>
+        <a href="entering.html" data-i18n="entering">입실</a>
+        <span class="divider">|</span>
+        <a href="viewseats.html" data-i18n="viewSeats">남은 좌석 확인</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="seat-page">
+    <h2 class="page-title" data-i18n="pageTitle">남은 좌석 확인</h2>
+
+    <!-- ✅ 안내 문구 -->
+    <p class="notice" data-i18n="notice">
+      이 페이지에서는 자리 확인 및 잔여 시간만 확인 가능합니다.
+    </p>
+
+    <div class="rooms-grid">
+      <!-- 901호 -->
+      <section class="room-wrap">
+        <h3 class="room-title">901 <span data-i18n="room">호</span></h3>
+        <div class="room-canvas">
+          <div class="seat available" style="left:220px; top:40px;">1</div>
+          <div class="seat available" style="left:300px; top:40px;">2</div>
+          <div class="seat available" style="left:220px; top:120px;">3</div>
+          <div class="seat available" style="left:300px; top:120px;">4</div>
+          <div class="seat available" style="left:520px; top:40px;">5</div>
+          <div class="seat available" style="left:600px; top:40px;">6</div>
+          <div class="seat available" style="left:520px; top:120px;">7</div>
+          <div class="seat available" style="left:600px; top:120px;">8</div>
+          <div class="seat available" style="left:260px; top:300px;">9</div>
+          <div class="seat available" style="left:340px; top:300px;">10</div>
+          <div class="seat available" style="left:420px; top:300px;">11</div>
+          <div class="seat available" style="left:500px; top:300px;">12</div>
+          <div class="seat available" style="left:580px; top:300px;">13</div>
+        </div>
+      </section>
+
+      <!-- 907호 -->
+      <section class="room-wrap">
+        <h3 class="room-title">907 <span data-i18n="room">호</span></h3>
+        <div class="room-canvas">
+          <div class="seat used" style="left:0px; top:40px;" data-i18n="fixedSeat">고정석</div>
+          <div class="seat used" style="left:0px; top:180px;" data-i18n="fixedSeat">고정석</div>
+          <div class="seat used" style="left:620px; top:40px;" data-i18n="fixedSeat">고정석</div>
+          <div class="seat available" style="left:620px; top:180px;">14</div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 범례 -->
+    <div class="legend">
+      <span class="dot used"></span> <span data-i18n="used">사용 중</span>
+      <span class="dot free"></span> <span data-i18n="free">사용 가능</span>
+    </div>
+
+    <!-- 언어 전환 버튼 -->
+    <div style="text-align:center; margin-top:20px;">
+      <button id="btn-lang">English</button>
+    </div>
+  </main>
+
+  <!-- 번역 스크립트 -->
+  <script>
+    const translations = {
+      en: {
+        title: "View Seat Availability - SCLab",
+        main: "Main",
+        entering: "Enter",
+        viewSeats: "Check Available Seats",
+        pageTitle: "Available Seats",
+        notice: "On this page, you can only check your seat and remaining time.",
+        room: "Room",
+        fixedSeat: "Fixed Seat",
+        used: "In Use",
+        free: "Available"
+      },
+      ko: {
+        title: "좌석 현황 보기 - SCLab",
+        main: "Main",
+        entering: "입실",
+        viewSeats: "남은 좌석 확인",
+        pageTitle: "남은 좌석 확인",
+        notice: "이 페이지에서는 자리 확인 및 잔여 시간만 확인 가능합니다.",
+        room: "호",
+        fixedSeat: "고정석",
+        used: "사용 중",
+        free: "사용 가능"
+      }
+    };
+
+    let currentLang = "ko";
+
+    document.getElementById("btn-lang").addEventListener("click", () => {
+      currentLang = currentLang === "ko" ? "en" : "ko";
+
+      // data-i18n 번역 적용
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.getAttribute("data-i18n");
+        el.textContent = translations[currentLang][key];
+      });
+
+      // 버튼 텍스트 전환
+      document.getElementById("btn-lang").textContent =
+        currentLang === "ko" ? "English" : "한국어";
+
+      // <title> 번역
+      document.title = translations[currentLang]["title"];
+    });
+  </script>
+
+  <!-- ✅ user.js + checkout.js 불러오기 -->
+  <script type="module">
+    import { renderLoggedInUser, requireLogin } from "./js/user.js";
+    import "./js/checkout.js";
+    import { showRemainingTime } from "./js/timer.js";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      requireLogin();       
+      renderLoggedInUser(); // ✅ 로그인 표시 (header 영역)
+
+      // ✅ 내 예약 불러오기
+      const myReservation = JSON.parse(localStorage.getItem("myReservation") || "null");
+      if (myReservation && myReservation.endTime) {
+        // checkout 페이지의 퇴실 폼 위에만 표시
+        showRemainingTime(myReservation, ".checkout-form");  
+      }
+    });
+  </script>
+</body>
+</html>
