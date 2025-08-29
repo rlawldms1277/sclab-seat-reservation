@@ -1,7 +1,7 @@
 // js/viewseats.js
 
 // 서버 주소
-const BASE_URL = "http://172.20.10.9:3000";
+const BASE_URL = "https://lab-reserve-backend.onrender.com";
 
 // 유틸리티 함수
 const $ = (sel, root = document) => root.querySelector(sel);

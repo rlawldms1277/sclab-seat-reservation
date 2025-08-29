@@ -3,7 +3,8 @@
 import { renderLoggedInUser, requireLogin } from "./user.js";
 
 // ----------------- 서버 주소 -----------------
-const BASE_URL = "http://172.20.10.9:3000";
+const BASE_URL = "https://lab-reserve-backend.onrender.com";
+
 
 // ----------------- 상태 관리 -----------------
 const state = { room: "901", seat: null, time: null, user: null, reservations: [] };

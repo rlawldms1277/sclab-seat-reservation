@@ -1,7 +1,8 @@
 // js/entering.js
 import { renderLoggedInUser, requireLogin } from "./user.js";  // 경로 수정 주의!
 
-const BASE_URL = "http://172.20.10.9:3000";
+const BASE_URL = "https://lab-reserve-backend.onrender.com";
+
 
 // 유틸
 const $ = (sel) => document.querySelector(sel);

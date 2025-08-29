@@ -81,7 +81,7 @@ document.getElementById("btn-lang").addEventListener("click", () => {
 });
 
 // ✅ 서버 주소 (개발: localhost, 배포: 클라우드 주소 교체 예정)
-const BASE_URL = "http://172.20.10.9:3000";
+const BASE_URL = "https://lab-reserve-backend.onrender.com";
 
 
 // ✅ 폼 제출 처리

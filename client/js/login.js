@@ -1,5 +1,5 @@
 // ✅ 서버 주소
-const BASE_URL = "http://172.20.10.9:3000";
+const BASE_URL = "https://lab-reserve-backend.onrender.com";
 
 document.getElementById("login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
