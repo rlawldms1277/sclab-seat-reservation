@@ -16,7 +16,7 @@
       <nav class="main-nav">
         <a href="index.html" data-i18n="main">Main</a>
         <span class="divider">|</span>
-        <a href="entering.html" data-i18n="enter">입실</a>
+        <a href="entering.html" data-i18n="entering">입실</a>
         <span class="divider">|</span>
         <a href="viewseats.html" data-i18n="viewSeats">남은 좌석 확인</a>
       </nav>
@@ -169,17 +169,16 @@
   </script>
   <!-- ✅ user.js + checkout.js 불러오기 -->
   <script type="module">
-    import { renderLoggedInUser, requireLogin } from "./js/user.js";
-    import "./js/checkout.js";
-    import { showRemainingTime } from "./js/timer.js";
+  import { renderLoggedInUser } from "./js/user.js";   <!-- ✅ requireLogin 삭제 -->
+  import "./js/checkout.js";
+  import { showRemainingTime } from "./js/timer.js";
 
-    document.addEventListener("DOMContentLoaded", () => {    
-      renderLoggedInUser(); // ✅ 로그인 표시 (header 영역)
+  document.addEventListener("DOMContentLoaded", () => {    
+      renderLoggedInUser(); // ✅ 로그인 표시만
 
       // ✅ 내 예약 불러오기
       const myReservation = JSON.parse(localStorage.getItem("myReservation") || "null");
       if (myReservation && myReservation.endTime) {
-        // checkout 페이지의 퇴실 폼 위에만 표시
         showRemainingTime(myReservation, ".checkout-form");  
       }
     });
