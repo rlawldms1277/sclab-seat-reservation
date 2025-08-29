@@ -10,7 +10,6 @@
   <!-- 헤더 -->
   <header class="navbar">
     <div class="logo">SClab</div>
-    <!-- 우측 컨트롤: 위 user-info, 아래 nav -->
     <div class="right-controls">
       <div class="user-info" id="user-info"></div>
       <nav class="main-nav">
@@ -43,7 +42,6 @@
       <section class="room-wrap">
         <div id="room-901" class="room active">
           <div class="room-canvas">
-            <!-- 각 좌석에 data-seat-id 추가 -->
             <div class="seat available" data-seat-id="1" style="left:220px; top:40px;">1</div>
             <div class="seat available" data-seat-id="2" style="left:300px; top:40px;">2</div>
             <div class="seat available" data-seat-id="3" style="left:220px; top:120px;">3</div>
@@ -106,21 +104,20 @@
     <!-- 하단 버튼 -->
     <div class="actions">
       <button class="action-btn" id="btnReserve" data-i18n="reserveBtn">예약</button>
-      <button class="action-btn" id="btnLeave" onclick="location.href='checkout.html'" data-i18n="leaveBtn">퇴실</button>
+      <button class="action-btn" id="btnLeave" data-i18n="leaveBtn">퇴실</button>
       <button class="action-btn" id="btnExtend" data-i18n="extendBtn">연장</button>
     </div>
   </main>
 
-    <!-- seat.html -->
-    <script type="module" src="./js/seat.js"></script>
+  <!-- 메인 스크립트 -->
+  <script type="module" src="./js/seat.js"></script>
 
-      
   <!-- 번역 스크립트 -->
   <script>
    const translations = {
       en: {
         main: "Main",
-        enter: "Enter",
+        entering: "Enter",
         viewSeats: "Check Available Seats",
         seatSelect: "Seat Selection",
         timeSelect: "Select Time",
@@ -137,7 +134,7 @@
       },
       ko: {
         main: "Main",
-        enter: "입실",
+        entering: "입실",
         viewSeats: "남은 좌석 확인",
         seatSelect: "자리 선택",
         timeSelect: "예약 시간 선택",
@@ -167,22 +164,5 @@
         currentLang === "ko" ? "English" : "한국어";
     });
   </script>
-  <!-- ✅ user.js + checkout.js 불러오기 -->
-  <script type="module">
-  import { renderLoggedInUser } from "./js/user.js";   <!-- ✅ requireLogin 삭제 -->
-  import "./js/checkout.js";
-  import { showRemainingTime } from "./js/timer.js";
-
-  document.addEventListener("DOMContentLoaded", () => {    
-      renderLoggedInUser(); // ✅ 로그인 표시만
-
-      // ✅ 내 예약 불러오기
-      const myReservation = JSON.parse(localStorage.getItem("myReservation") || "null");
-      if (myReservation && myReservation.endTime) {
-        showRemainingTime(myReservation, ".checkout-form");  
-      }
-    });
-  </script>
-
 </body>
 </html>
