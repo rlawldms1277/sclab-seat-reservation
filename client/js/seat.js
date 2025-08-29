@@ -137,6 +137,7 @@ function renderTimeStatusForSeat(seatId) {
   const timeButtons = $$(".time-grid button");
   const reservations = state.reservations || [];
 
+  // 초기화
   timeButtons.forEach(btn => {
     btn.classList.remove("reserved", "done", "picked");
     btn.disabled = false;
@@ -144,11 +145,13 @@ function renderTimeStatusForSeat(seatId) {
 
   if (!seatId) return;
 
+  // 각 시간버튼에 대해 해당 시간에 겹치는 예약이 있는지 검사
   timeButtons.forEach(btn => {
     const btnHour = hourFromLabel(btn.textContent);
     if (btnHour === null) return;
 
-    const found = reservations.find(r =>
+    // 동일 좌석/방에 대해 이 시간에 겹치는 모든 예약을 찾음
+    const matches = reservations.filter(r =>
       String(r.room) === String(state.room) &&
       String(r.seat) === String(seatId) &&
       r.startHour !== null &&
@@ -156,25 +159,29 @@ function renderTimeStatusForSeat(seatId) {
       btnHour >= r.startHour && btnHour < r.endHourExclusive
     );
 
-    if (found) {
-      const st = String(found.status || "").toUpperCase();
-      if (st === "PENDING" || st === "CANCELED") {
-        btn.classList.add("reserved");   // 예약 대기/취소 표시는 reserved 스타일
-        btn.disabled = true;
-      } else if (st === "CHECKED_IN") {
-        btn.classList.add("done");       // 입실 → done 스타일
-        btn.disabled = true;
-      } else if (st === "FINISHED" || st === "EXPIRED") {
-        btn.classList.add("done");       // 완료/만료 → done 스타일 (disabled)
-        btn.disabled = true;
-      } else {
-        // unknown 상태도 비활성화 시킴 (안전)
-        btn.classList.add("reserved");
-        btn.disabled = true;
-      }
+    if (matches.length === 0) return;
+
+    // 우선순위:
+    // 1) CHECKED_IN (입실중) -> done(빨간/완료 스타일) / 비활성
+    // 2) PENDING (예약중) -> reserved(초록/예약중 스타일) / 비활성
+    // 다른 상태 (FINISHED, EXPIRED, CANCELED 등)는 '과거/취소'로 보고 선택 가능하게 둠.
+    if (matches.some(r => String(r.status || "").toUpperCase() === "CHECKED_IN")) {
+      btn.classList.add("done");
+      btn.disabled = true;
+      return;
     }
+
+    if (matches.some(r => String(r.status || "").toUpperCase() === "PENDING")) {
+      btn.classList.add("reserved");
+      btn.disabled = true;
+      return;
+    }
+
+    // matches 전부가 FINISHED/EXPIRED/CANCELED 등인 경우
+    // 버튼은 활성화 상태로 둠 (선택 가능)
   });
 }
+
 
 async function refreshReservationsForRoom(room) {
   const raw = await apiFetchReservations(room);
@@ -420,6 +427,14 @@ function init() {
     btn.addEventListener("click", () => switchRoom(btn.dataset.room))
   );
   $$(".seat").forEach(seat => seat.addEventListener("click", onSeatClick));
+
+  // init() 안 적당한 곳(초기화 끝부분)에 추가
+  window.addEventListener("storage", (ev) => {
+    if (ev.key === "myReservation" || ev.key === "lastReservationId" || ev.key === "reservationUpdate") {
+      refreshReservationsForRoom(state.room);
+    }
+  });
+
 
   bindActions();
   refreshReservationsForRoom(state.room);
