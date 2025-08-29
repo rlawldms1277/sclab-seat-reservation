@@ -36,7 +36,7 @@ function hourFromLabel(label) {
 // ----------------- 서버 호출 -----------------
 async function apiFetchReservations(room) {
   try {
-    const url = room 
+    const url = room
       ? `${BASE_URL}/reservations?room=${encodeURIComponent(room)}`
       : `${BASE_URL}/reservations`;
 
@@ -272,7 +272,6 @@ function updateSeatUI(room) {
 }
 
 
-
 // ----------------- 로컬 체크인(또는 폴백) UI 반영 -----------------
 function applyLocalMyReservation() {
   try {
@@ -413,21 +412,21 @@ function bindActions() {
     }
 
 
-  // ----------------- 여기에 충돌 검사 추가 -----------------
-  // 선택한 시작시간(selHour)이 이미 그 좌석의 다른 예약과 겹치는지 검사
-  const conflict = state.reservations.some(r =>
-    String(r.room) === String(state.room) &&
-    String(r.seat) === String(state.seat) &&
-    r.startHour !== null &&
-    r.endHourExclusive !== null &&
-    selHour >= r.startHour && selHour < r.endHourExclusive &&
-    String(r.status || "").toUpperCase() !== "CANCELED"
-  );
+    // ----------------- 여기에 충돌 검사 추가 -----------------
+    // 선택한 시작시간(selHour)이 이미 그 좌석의 다른 예약과 겹치는지 검사
+    const conflict = state.reservations.some(r =>
+      String(r.room) === String(state.room) &&
+      String(r.seat) === String(state.seat) &&
+      r.startHour !== null &&
+      r.endHourExclusive !== null &&
+      selHour >= r.startHour && selHour < r.endHourExclusive &&
+      String(r.status || "").toUpperCase() !== "CANCELED"
+    );
 
-  if (conflict) {
-    alert("선택한 시간대는 이미 예약되어 있습니다. 다른 시간/좌석을 선택해주세요.");
-    return;
-  }
+    if (conflict) {
+      alert("선택한 시간대는 이미 예약되어 있습니다. 다른 시간/좌석을 선택해주세요.");
+      return;
+    }
 
 
     // 서버 예약 요청
