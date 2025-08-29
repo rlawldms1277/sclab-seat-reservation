@@ -36,7 +36,7 @@ function hourFromLabel(label) {
 // ----------------- 서버 호출 -----------------
 async function apiFetchReservations(room) {
   try {
-    const url = room
+    const url = room 
       ? `${BASE_URL}/reservations?room=${encodeURIComponent(room)}`
       : `${BASE_URL}/reservations`;
 
@@ -133,7 +133,6 @@ function normalizeReservationRaw(raw) {
 }
 
 // ----------------- UI 렌더링 -----------------
-// 기존 renderTimeStatusForSeat 대신 아래 코드로 교체
 function renderTimeStatusForSeat(seatId) {
   const timeButtons = $$(".time-grid button");
   const reservations = state.reservations || [];
@@ -146,12 +145,12 @@ function renderTimeStatusForSeat(seatId) {
 
   if (!seatId) return;
 
-  // 각 시간버튼에 대해 "해당 시간에 겹치는 예약"이 하나라도 있으면 표시
+  // 각 시간버튼에 대해 해당 시간에 겹치는 예약이 있는지 검사
   timeButtons.forEach(btn => {
     const btnHour = hourFromLabel(btn.textContent);
     if (btnHour === null) return;
 
-    // 동일 좌석, 동일 방에 대해 이 버튼 시간에 겹치는 reservation이 있는지 검사
+    // 동일 좌석/방에 대해 이 시간에 겹치는 모든 예약을 찾음
     const matches = reservations.filter(r =>
       String(r.room) === String(state.room) &&
       String(r.seat) === String(seatId) &&
@@ -162,36 +161,27 @@ function renderTimeStatusForSeat(seatId) {
 
     if (matches.length === 0) return;
 
-    // 우선순위: CHECKED_IN(입실 중) > PENDING(예약중) > FINISHED/EXPIRED(완료/만료)
-    let applied = false;
-    // CHECKED_IN 우선 처리
+    // 우선순위:
+    // 1) CHECKED_IN (입실중) -> done(빨간/완료 스타일) / 비활성
+    // 2) PENDING (예약중) -> reserved(초록/예약중 스타일) / 비활성
+    // 다른 상태 (FINISHED, EXPIRED, CANCELED 등)는 '과거/취소'로 보고 선택 가능하게 둠.
     if (matches.some(r => String(r.status || "").toUpperCase() === "CHECKED_IN")) {
       btn.classList.add("done");
       btn.disabled = true;
-      applied = true;
+      return;
     }
-    if (!applied && matches.some(r => String(r.status || "").toUpperCase() === "PENDING")) {
+
+    if (matches.some(r => String(r.status || "").toUpperCase() === "PENDING")) {
       btn.classList.add("reserved");
       btn.disabled = true;
-      applied = true;
+      return;
     }
-    if (!applied && matches.some(r => {
-      const s = String(r.status || "").toUpperCase();
-      return s === "FINISHED" || s === "EXPIRED";
-    })) {
-      // 과거 완료는 보이게 할지 여부 결정 -> 현재는 done(비활성)
-      btn.classList.add("done");
-      btn.disabled = true;
-      applied = true;
-    }
-    if (!applied) {
-      // 기타 unknown 상태도 reserved 처리
-      btn.classList.add("reserved");
-      btn.disabled = true;
-      applied = true;
-    }
+
+    // matches 전부가 FINISHED/EXPIRED/CANCELED 등인 경우
+    // 버튼은 활성화 상태로 둠 (선택 가능)
   });
 }
+
 
 async function refreshReservationsForRoom(room) {
   const raw = await apiFetchReservations(room);
@@ -221,11 +211,11 @@ function updateSeatUI(room) {
 
   seats.forEach(seatEl => {
     const seatId = seatEl.dataset.seatId;
-    // 기본값: used, reserved-seat 제거하고 available로
-    seatEl.classList.remove("used", "reserved-seat");
+    // 기본값은 available
+    seatEl.classList.remove("used");
     seatEl.classList.add("available");
 
-    // 1) CHECKED_IN & 현재시간 범위 → used (입실중)
+    // 동일 좌석에 대해 CHECKED_IN 상태이면서 현재 시간이 start~end 사이인 예약이 있으면 used
     const overlapping = reservations.find(r =>
       String(r.room) === String(room) &&
       String(r.seat) === String(seatId) &&
@@ -237,36 +227,6 @@ function updateSeatUI(room) {
     if (overlapping) {
       seatEl.classList.remove("available");
       seatEl.classList.add("used");
-    }
-
-    // 2) 미래(또는 현재 이후) 예약이 있는 경우 reserved-seat 표시
-    const hasFuture = reservations.some(r =>
-      String(r.room) === String(room) &&
-      String(r.seat) === String(seatId) &&
-      r.startTime &&
-      new Date(r.startTime) > now && // 시작 시간이 지금 이후면 "미래예약"
-      String(r.status || "").toUpperCase() !== "CANCELED"
-    );
-
-    // 또한 'PENDING'이면서 오늘의 남은 시간대에 예약이 있으면 보이게 할 수도 있음
-    const hasPendingToday = reservations.some(r =>
-      String(r.room) === String(room) &&
-      String(r.seat) === String(seatId) &&
-      r.startTime && r.endTime &&
-      (new Date(r.startTime) <= new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23,59,59)) &&
-      (new Date(r.endTime) >= now) &&
-      String(r.status || "").toUpperCase() === "PENDING"
-    );
-
-    if (hasFuture || hasPendingToday) {
-      seatEl.classList.remove("available");
-      // don't override 'used' — if already used, keep used, but still mark reserved-seat for info
-      if (!seatEl.classList.contains("used")) {
-        seatEl.classList.add("reserved-seat");
-      } else {
-        // used + reserved both: optionally add a small marker; we still keep 'used' class
-        seatEl.classList.add("reserved-seat");
-      }
     }
   });
 }
@@ -325,17 +285,17 @@ function applyLocalMyReservation() {
 function onSeatClick(e) {
   const seat = e.currentTarget;
 
+  // 'used' 클래스는 시각적 표시일 뿐, 다른 시간대 예약을 막아선 안 됩니다.
+  // 따라서 used 체크로 클릭을 차단하지 않습니다.
+
   $$(".seat.selected").forEach(s => s.classList.remove("selected"));
   seat.classList.add("selected");
 
   state.seat = seat.dataset.seatId;
 
-  // 디버그: 선택한 좌석의 예약 목록 로그 (원하면 툴팁으로 바꿀 수 있음)
-  console.log("selected seat reservations:", state.reservations.filter(r => String(r.seat) === String(state.seat) && String(r.room) === String(state.room)));
-
+  // 선택된 좌석에 대한 시간별 상태를 다시 그립니다.
   renderTimeStatusForSeat(state.seat);
 }
-
 
 function onTimeClick(e) {
   const btn = e.currentTarget;
@@ -411,24 +371,6 @@ function bindActions() {
       }
     }
 
-
-    // ----------------- 여기에 충돌 검사 추가 -----------------
-    // 선택한 시작시간(selHour)이 이미 그 좌석의 다른 예약과 겹치는지 검사
-    const conflict = state.reservations.some(r =>
-      String(r.room) === String(state.room) &&
-      String(r.seat) === String(state.seat) &&
-      r.startHour !== null &&
-      r.endHourExclusive !== null &&
-      selHour >= r.startHour && selHour < r.endHourExclusive &&
-      String(r.status || "").toUpperCase() !== "CANCELED"
-    );
-
-    if (conflict) {
-      alert("선택한 시간대는 이미 예약되어 있습니다. 다른 시간/좌석을 선택해주세요.");
-      return;
-    }
-
-
     // 서버 예약 요청
     const apiResult = await apiCreateReservation({
       seat: state.seat,
@@ -485,6 +427,13 @@ function init() {
     btn.addEventListener("click", () => switchRoom(btn.dataset.room))
   );
   $$(".seat").forEach(seat => seat.addEventListener("click", onSeatClick));
+
+  window.addEventListener("storage", (ev) => {
+  if (ev.key === "myReservation" || ev.key === "reservationUpdate" || ev.key === "lastReservationId") {
+    refreshReservationsForRoom(state.room);
+  }
+});
+
 
   bindActions();
   refreshReservationsForRoom(state.room);
