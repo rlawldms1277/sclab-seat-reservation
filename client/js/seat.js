@@ -145,7 +145,7 @@ function renderTimeStatusForSeat(seatId) {
 
   if (!seatId) return;
 
-  // 각 시간버튼에 대해 해당 시간에 겹치는 예약이 있는지 검사
+  // 각 시간버튼에 대해 이 시간에 겹치는 예약이 있는지 검사
   timeButtons.forEach(btn => {
     const btnHour = hourFromLabel(btn.textContent);
     if (btnHour === null) return;
@@ -372,7 +372,7 @@ function bindActions() {
     }
 
 
-        // --- 검증 및 디버그 로그 추가 (아래를 "// 서버 예약 요청" 바로 위에 붙여넣으세요) ---
+    // --- 검증 및 디버그 로그 추가 (아래를 "// 서버 예약 요청" 바로 위에 붙여넣으세요) ---
     // selHour 가 정상인지 확인
     if (selHour === null || Number.isNaN(selHour)) {
       console.error("예약 실패: selHour invalid", { stateTime: state.time, selHour });
@@ -407,11 +407,10 @@ function bindActions() {
     // --- 여기까지 ---
 
 
-
-
     // 서버 예약 요청
+    // >>> 여기서 반드시 숫자(seatNum)를 넘겨 서버 스키마(seatId:number)에 맞춥니다.
     const apiResult = await apiCreateReservation({
-      seat: state.seat,
+      seat: seatNum,
       startTimeISO: start.toISOString(),
       endTimeISO: end.toISOString()
     });
