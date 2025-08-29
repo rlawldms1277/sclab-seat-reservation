@@ -1,0 +1,13 @@
+{
+  "name": "sclab",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "echo \"no server\"",
+    "build:client": "echo \"client build step\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
