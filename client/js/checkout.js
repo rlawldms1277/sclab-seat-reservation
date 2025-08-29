@@ -1,13 +1,6 @@
 // js/checkout.js
+import { authHeaders } from "./utils.js"; // utils.js가 같은 폴더(js/)에 있어야 합니다.
 const BASE_URL = "https://lab-reserve-backend.onrender.com";
-
-// authHeaders를 로컬로 안전하게 구현 (utils.js가 없을 때 사용)
-function authHeaders() {
-  const token = localStorage.getItem("token");
-  return token
-    ? { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }
-    : { "Content-Type": "application/json" };
-}
 
 async function apiCheckout(reservationId, password) {
   const idNum = Number(reservationId);
@@ -43,43 +36,43 @@ document.addEventListener("DOMContentLoaded", () => {
   const passwordInput = document.querySelector(".input-pill input");
   const btn = checkoutForm ? checkoutForm.querySelector(".btn-checkout") : null;
 
-  // showRemainingTime 동작하려면 이 스크립트가 성공적으로 로드되어야 합니다.
-  if (checkoutForm) {
-    checkoutForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      if (!btn) return;
+  if (!checkoutForm) return;
 
-      const reservationId = localStorage.getItem("lastReservationId");
-      const password = (passwordInput && passwordInput.value || "").trim();
+  checkoutForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!btn) return;
 
-      if (!reservationId) {
-        alert("퇴실할 예약이 없습니다.");
-        return;
-      }
-      if (!password) {
-        alert("비밀번호를 입력해주세요.");
-        return;
-      }
+    const reservationId = localStorage.getItem("lastReservationId");
+    const password = (passwordInput && passwordInput.value || "").trim();
 
-      btn.disabled = true;
-      const originalText = btn.textContent;
-      btn.textContent = "처리중...";
+    if (!reservationId) {
+      alert("퇴실할 예약이 없습니다.");
+      return;
+    }
+    if (!password) {
+      alert("비밀번호를 입력해주세요.");
+      return;
+    }
 
-      const result = await apiCheckout(reservationId, password);
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = "처리중...";
 
-      btn.disabled = false;
-      btn.textContent = originalText;
+    const result = await apiCheckout(reservationId, password);
 
-      if (result.ok) {
-        alert("퇴실이 완료되었습니다. 이용해주셔서 감사합니다!");
-        localStorage.removeItem("lastReservationId");
-        localStorage.removeItem("myReservation");
-        localStorage.removeItem("lastSeat");
-        localStorage.removeItem("lastSeatRoom");
-        window.location.href = "viewseats.html";
-      } else {
-        alert("퇴실 실패: " + (result.message || "알 수 없는 오류"));
-      }
-    });
-  }
+    btn.disabled = false;
+    btn.textContent = originalText;
+
+    if (result.ok) {
+      // 서버가 success 응답을 줬을 때: { message: "...", reservation: {...} }
+      alert("퇴실이 완료되었습니다. 이용해주셔서 감사합니다!");
+      localStorage.removeItem("lastReservationId");
+      localStorage.removeItem("myReservation");
+      localStorage.removeItem("lastSeat");
+      localStorage.removeItem("lastSeatRoom");
+      window.location.href = "viewseats.html";
+    } else {
+      alert("퇴실 실패: " + (result.message || "알 수 없는 오류"));
+    }
+  });
 });
