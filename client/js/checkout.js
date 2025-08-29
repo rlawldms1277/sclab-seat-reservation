@@ -64,13 +64,18 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.textContent = originalText;
 
     if (result.ok) {
-      // 서버가 success 응답을 줬을 때: { message: "...", reservation: {...} }
-      alert("퇴실이 완료되었습니다. 이용해주셔서 감사합니다!");
-      localStorage.removeItem("lastReservationId");
-      localStorage.removeItem("myReservation");
-      localStorage.removeItem("lastSeat");
-      localStorage.removeItem("lastSeatRoom");
-      window.location.href = "viewseats.html";
+    alert("퇴실이 완료되었습니다. 이용해주셔서 감사합니다!");
+
+    // 다른 탭에 알림
+    localStorage.setItem("reservationUpdate", JSON.stringify({ action: "checkout", reservationId: Number(reservationId), ts: Date.now() }));
+
+    // 로컬 정리
+    localStorage.removeItem("lastReservationId");
+    localStorage.removeItem("myReservation");
+    localStorage.removeItem("lastSeat");
+    localStorage.removeItem("lastSeatRoom");
+
+    window.location.href = "viewseats.html";
     } else {
       alert("퇴실 실패: " + (result.message || "알 수 없는 오류"));
     }

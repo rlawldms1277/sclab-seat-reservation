@@ -379,6 +379,33 @@ html, body {
   gap: 12px;
 }
 
+/* 좌석 위에 표시되는 남은 시간 배지 */
+.seat .seat-timer {
+  position: absolute;
+  top: -8px;
+  right: -6px;
+  background: rgba(0,0,0,0.75);
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  line-height: 1;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 5;
+}
+
+/* 미래 예약 표시용 (시각적 힌트) */
+.seat.reserved-seat {
+  box-shadow: 0 0 0 3px rgba(76,175,80,0.12) inset;
+  color: #0a0a0a;
+}
+
+/* used 우선 유지 */
+.seat.used { background: #bdbdbd !important; color: #fff; }
+
+
+
 /* 반응형 */
 @media (max-width: 980px) {
   .grid { grid-template-columns: 1fr; }
