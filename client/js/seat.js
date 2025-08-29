@@ -240,18 +240,28 @@ function applyLocalMyReservation() {
       seatEl.classList.add("used");
     }
 
-    // 시간 버튼도 start/end 기준으로 done 표시
+    // 시간 버튼도 start/end 기준으로 done(reserved) 표시
     const start = myRes.startTime ? new Date(myRes.startTime) : null;
     const end = myRes.endTime ? new Date(myRes.endTime) : null;
+    const status = (myRes.status || "").toUpperCase();
+
     if (start && end) {
       $$(".time-grid button").forEach(btn => {
         const h = hourFromLabel(btn.textContent);
         if (h === null) return;
+
+        // endExclusive 계산 (이미 normalize 로직과 동일 처리)
         let endExclusive = end.getHours();
         if (end.getMinutes() > 0 || end.getSeconds() > 0 || end.getMilliseconds() > 0) endExclusive++;
+
         if (h >= start.getHours() && h < endExclusive) {
-          btn.classList.remove("reserved");
-          btn.classList.add("done");
+          btn.classList.remove("reserved", "done", "picked");
+          // CHECKED_IN -> done (입실 중), 그 외 (PENDING 등) -> reserved
+          if (status === "CHECKED_IN") {
+            btn.classList.add("done");
+          } else {
+            btn.classList.add("reserved");
+          }
           btn.disabled = true;
         }
       });
@@ -267,12 +277,16 @@ function applyLocalMyReservation() {
 // ----------------- 좌석/시간 선택 -----------------
 function onSeatClick(e) {
   const seat = e.currentTarget;
-  if (seat.classList.contains("used")) return;
+
+  // 'used' 클래스는 시각적 표시일 뿐, 다른 시간대 예약을 막아선 안 됩니다.
+  // 따라서 used 체크로 클릭을 차단하지 않습니다.
 
   $$(".seat.selected").forEach(s => s.classList.remove("selected"));
   seat.classList.add("selected");
 
   state.seat = seat.dataset.seatId;
+
+  // 선택된 좌석에 대한 시간별 상태를 다시 그립니다.
   renderTimeStatusForSeat(state.seat);
 }
 
@@ -360,7 +374,7 @@ function bindActions() {
     if (apiResult.ok) {
       const rec = normalizeReservationRaw(apiResult.rec);
       if (rec.id) localStorage.setItem("lastReservationId", rec.id);
-      
+
       // 서버 응답 기반으로 최근 좌석/방 정보 저장 (entering에서 사용)
       if (rec.room) localStorage.setItem("lastSeatRoom", String(rec.room));
       if (rec.seat) localStorage.setItem("lastSeat", String(rec.seat));
@@ -376,16 +390,21 @@ function bindActions() {
         pin: apiResult.pin || rec.pin || null
       }));
 
-
-
       await refreshReservationsForRoom(state.room);
       const pin = apiResult.pin || rec.pin || "UNKNOWN";
-      alert(`예약 완료!\n좌석: ${rec.seat}\n시간: ${state.time} ~ ${end.getHours()}:59\n입실 PIN: ${pin}`);
+
+      // 정확한 종료 표시: end는 '종료 시점의 시작'일 수 있으므로 -1ms 해서 표시
+      const displayEnd = new Date(end.getTime() - 1);
+      const endHourStr = String(displayEnd.getHours()).padStart(2, "0");
+      const endMinStr = String(displayEnd.getMinutes()).padStart(2, "0");
+
+      alert(`예약 완료!\n좌석: ${rec.seat}\n시간: ${state.time} ~ ${endHourStr}:${endMinStr}\n입실 PIN: ${pin}`);
     } else {
       alert("예약 실패: " + (apiResult.reason || "서버 오류"));
     }
   });
 
+  // ---- 이 부분은 reserveBtn 핸들러 밖에서 동작해야 합니다 ----
   leaveBtn.addEventListener("click", () => window.location.href = "checkout.html");
   extendBtn.addEventListener("click", () => alert("연장 기능 준비 중"));
 

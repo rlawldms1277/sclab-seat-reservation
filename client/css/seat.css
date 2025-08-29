@@ -181,6 +181,9 @@ html, body {
 .seat.used {
   background: #bdbdbd;
   color: #fff;
+  cursor: pointer;        /* 클릭 가능하다는 걸 보여줌 */
+  pointer-events: auto;   /* 클릭 허용 (절대 차단 금지) */
+  opacity: 0.95;
 }
 
 .seat.selected {
