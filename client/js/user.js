@@ -21,11 +21,4 @@ export function renderLoggedInUser() {
   }
 }
 
-// ✅ 로그인 여부 체크 (로그인 안 되어 있으면 index.html로 이동)
-export function requireLogin() {
-  const user = JSON.parse(localStorage.getItem("user") || "null");
-  if (!user) {
-    alert("로그인이 필요합니다.");
-    window.location.href = "index.html";
-  }
-}
+

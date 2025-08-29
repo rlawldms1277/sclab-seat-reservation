@@ -153,8 +153,41 @@ function renderTimeStatusForSeat(seatId) {
 async function refreshReservationsForRoom(room) {
   const raw = await apiFetchReservations(room);
   state.reservations = raw.map(normalizeReservationRaw);
+
+  // ✅ 좌석 현황 업데이트
+  updateSeatUI(room);
+
   renderTimeStatusForSeat(state.seat);
 }
+
+function updateSeatUI(room) {
+  const reservations = state.reservations;
+
+  // 현재 방의 좌석 DOM들 가져오기
+  const seats = $$("#room-" + room + " .seat");
+
+  seats.forEach(seatEl => {
+    const seatId = seatEl.dataset.seatId;
+    // 기본값은 available
+    seatEl.classList.remove("used");
+    seatEl.classList.add("available");
+
+    // 서버 데이터에서 해당 좌석 찾아오기
+    const found = reservations.find(r =>
+      String(r.room) === String(room) &&
+      String(r.seat) === String(seatId)
+    );
+
+    if (found) {
+      const st = String(found.status).toUpperCase();
+      if (st === "CHECKED_IN") {
+        seatEl.classList.remove("available");
+        seatEl.classList.add("used");   // ✅ 회색으로 표시
+      }
+    }
+  });
+}
+
 
 // ----------------- 좌석/시간 선택 -----------------
 function onSeatClick(e) {

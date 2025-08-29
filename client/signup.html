@@ -21,7 +21,7 @@
       <nav class="main-nav">
         <a href="index.html" data-i18n="main">Main</a>
         <span class="divider">|</span>
-        <a href="entering.html" data-i18n="enter">입실</a>
+        <a href="entering.html" data-i18n="entering">입실</a>
         <span class="divider">|</span>
         <a href="viewseats.html" data-i18n="viewSeats">남은 좌석 확인</a>
       </nav>
@@ -93,8 +93,7 @@
     import "./js/checkout.js";
     import { showRemainingTime } from "./js/timer.js";
 
-    document.addEventListener("DOMContentLoaded", () => {
-      requireLogin();       
+    document.addEventListener("DOMContentLoaded", () => {    
       renderLoggedInUser(); // ✅ 로그인 표시 (header 영역)
 
       // ✅ 내 예약 불러오기

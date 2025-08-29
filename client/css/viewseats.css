@@ -135,3 +135,15 @@ html,body{
   z-index: 10;
 }
 
+/* 좌석 안 남은 시간 표시 */
+.seat-timer {
+  position: absolute;
+  bottom: -18px;       /* 좌석 아래쪽에 표시 */
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;         /* 회색 글씨 (좌석색과 대비되게 조정 가능) */
+}
+
+
