@@ -12,6 +12,20 @@ const state = { room: "901", seat: null, time: null, user: null, reservations: [
 const $  = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
+
+// --- 고정석 판별 헬퍼 ---
+function isFixedSeatEl(el) {
+  if (!el) return false;
+  if (el.dataset && el.dataset.fixed === "true") return true;
+  const id = String(el.dataset.seatId || "");
+  return id.toLowerCase().startsWith("fixed");
+}
+function isFixedSeatId(id) {
+  if (!id) return false;
+  return String(id).toLowerCase().startsWith("fixed");
+}
+
+
 function loadLocalReservations() {
   try { return JSON.parse(localStorage.getItem("reservations") || "[]"); }
   catch (e) { return []; }
@@ -337,6 +351,13 @@ function bindActions() {
 
     await refreshReservationsForRoom(state.room);
 
+    // 고정석이면 예약 못하게 차단
+    if (isFixedSeatId(state.seat)) {
+      alert("선택한 좌석은 고정석으로 예약할 수 없습니다.");
+      return;
+    }
+
+
     // 로그인 사용자 확인
     const user = JSON.parse(localStorage.getItem("user") || "null");
     const userId = user ? Number(user.id) : null;
@@ -426,7 +447,18 @@ function init() {
   $$(".room-btn").forEach(btn =>
     btn.addEventListener("click", () => switchRoom(btn.dataset.room))
   );
-  $$(".seat").forEach(seat => seat.addEventListener("click", onSeatClick));
+
+  $$(".seat").forEach(seat => {
+  if (isFixedSeatEl(seat)) {
+    seat.classList.add("fixed-seat");
+    seat.setAttribute("aria-disabled", "true");
+    seat.style.cursor = "not-allowed";
+    seat.title = seat.title || "고정석 (예약 불가)";
+    return; // 고정석이면 클릭 핸들러 안 붙임
+  }
+  seat.addEventListener("click", onSeatClick);
+  });
+
 
   // init() 안 적당한 곳(초기화 끝부분)에 추가
   window.addEventListener("storage", (ev) => {
