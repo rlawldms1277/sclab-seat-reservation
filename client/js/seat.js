@@ -428,19 +428,18 @@ function init() {
   );
   $$(".seat").forEach(seat => seat.addEventListener("click", onSeatClick));
 
+  // init() 안 적당한 곳(초기화 끝부분)에 추가
   window.addEventListener("storage", (ev) => {
-  if (ev.key === "myReservation" || ev.key === "reservationUpdate" || ev.key === "lastReservationId") {
-    refreshReservationsForRoom(state.room);
-  }
-});
-
+    if (ev.key === "myReservation" || ev.key === "lastReservationId" || ev.key === "reservationUpdate") {
+      refreshReservationsForRoom(state.room);
+    }
+  });
 
   bindActions();
   refreshReservationsForRoom(state.room);
 
   // 30초마다 최신화
   setInterval(() => refreshReservationsForRoom(state.room), 30 * 1000);
-
 }
 
 document.addEventListener("DOMContentLoaded", init);
