@@ -21,4 +21,17 @@ export function renderLoggedInUser() {
   }
 }
 
+export function requireLogin() {
+  const token = localStorage.getItem("token");
+  // seat.html 같은 "보호된 페이지"일 때만 체크
+  const protectedPages = ["seat.html", "checkout.html", "entering.html"];
+  const currentPage = window.location.pathname.split("/").pop();
+
+  if (!token && protectedPages.includes(currentPage)) {
+    alert("로그인이 필요합니다.");
+    location.href = "index.html";
+  }
+}
+
+
 

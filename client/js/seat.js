@@ -1,7 +1,8 @@
 // js/seat.js
 
-import { renderLoggedInUser } from "./user-utils.js";
-import { requireLogin } from "./user.js";
+
+import { renderLoggedInUser, requireLogin } from "./user.js";
+
 
 
 // ----------------- 서버 주소 -----------------
