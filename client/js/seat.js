@@ -253,12 +253,33 @@ function bindActions() {
       return;
     }
 
-    // 예약 시간 계산
+    // 예약 시작 시간
     const selHour = hourFromLabel(state.time);
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), selHour, 0, 0, 0);
-    const end = new Date(start.getTime() + 4 * 60 * 60 * 1000); // 4시간
 
+    // 기본 종료 시간 = 시작 + 4시간
+    let end = new Date(start.getTime() + 4 * 60 * 60 * 1000);
+
+    // ✅ 같은 좌석에 이미 있는 예약 중 "시작 시간이 선택한 start 이후"인 것 찾기
+    const futureReservations = state.reservations.filter(r =>
+      String(r.room) === String(state.room) &&
+      String(r.seat) === String(state.seat) &&
+      r.startHour !== null &&
+      r.startHour >= selHour
+    );
+
+    if (futureReservations.length > 0) {
+      // 가장 가까운 예약 시작 시각 찾기
+      const nextStart = Math.min(...futureReservations.map(r => r.startHour));
+      const nextStartDate = new Date(start.getFullYear(), start.getMonth(), start.getDate(), nextStart, 0, 0, 0);
+
+      if (nextStartDate < end) {
+        end = new Date(nextStartDate.getTime() - 1); // 다음 예약 시작 직전까지만
+      }
+    }
+
+    // 서버 예약 요청
     const apiResult = await apiCreateReservation({
       seat: state.seat,
       startTimeISO: start.toISOString(),
@@ -271,11 +292,12 @@ function bindActions() {
 
       await refreshReservationsForRoom(state.room);
       const pin = apiResult.pin || rec.pin || "UNKNOWN";
-      alert(`예약 완료!\n좌석: ${rec.seat}\n시간: ${state.time}\n입실 PIN: ${pin}`);
+      alert(`예약 완료!\n좌석: ${rec.seat}\n시간: ${state.time} ~ ${end.getHours()}:59\n입실 PIN: ${pin}`);
     } else {
       alert("예약 실패: " + (apiResult.reason || "서버 오류"));
     }
   });
+
 
   leaveBtn.addEventListener("click", () => window.location.href = "checkout.html");
   extendBtn.addEventListener("click", () => alert("연장 기능 준비 중"));
