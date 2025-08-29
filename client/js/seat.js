@@ -101,14 +101,27 @@ function normalizeReservationRaw(raw) {
   const startDate = start ? new Date(start) : null;
   const endDate   = end ? new Date(end) : null;
 
+  // startHour은 시작 시각의 정수 시
+  const startHour = startDate ? startDate.getHours() : null;
+
+  // endHourExclusive: 종료 시각의 시(hour)를 배타적으로 비교하는 값.
+  // 만약 종료 시각에 분 또는 초가 0보다 크면 해당 '종료 시의 시'도 포함되어야 하므로 +1 처리
+  let endHourExclusive = null;
+  if (endDate) {
+    endHourExclusive = endDate.getHours();
+    if (endDate.getMinutes() > 0 || endDate.getSeconds() > 0 || endDate.getMilliseconds() > 0) {
+      endHourExclusive = endHourExclusive + 1;
+    }
+  }
+
   return {
     id: raw.id || `${room}-${seat}-${start}`,
     room: String(room),
     seat: String(seat),
     startTime: startDate ? startDate.toISOString() : null,
     endTime: endDate ? endDate.toISOString() : null,
-    startHour: startDate ? startDate.getHours() : null,
-    endHourExclusive: endDate ? endDate.getHours() : null,
+    startHour: startHour,
+    endHourExclusive: endHourExclusive,
     status: raw.status || "",
     pin: raw.pin || null,
     raw
