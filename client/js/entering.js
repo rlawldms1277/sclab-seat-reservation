@@ -12,36 +12,45 @@ function authHeaders() {
     : { "Content-Type": "application/json" };
 }
 
-// 서버 체크인 호출
+// 서버 체크인(퇴실 아닌 'checkout' 엔드포인트) 호출 - 서버 스펙에 맞춰 password 필드로 보냄
 async function apiCheckin(reservationId, pin) {
   try {
-    const res = await fetch(`${BASE_URL}/checkin`, {
+    const url = `${BASE_URL}/checkout`; // <-- 서버가 제공한 엔드포인트 (/checkout)
+    const body = {
+      reservationId: Number(reservationId),
+      password: String(pin) // <-- 서버는 'password' 필드를 기대함
+    };
+    console.log("체크인 요청 보냄:", url, body);
+
+    const res = await fetch(url, {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ reservationId: Number(reservationId), pin })
+      body: JSON.stringify(body)
     });
 
-    // 안전하게 JSON 파싱
     let data = null;
     try { data = await res.json(); } catch (e) { data = null; }
 
+    console.log("체크인 응답:", res.status, data);
+
     if (!res.ok) {
-      return { ok: false, message: (data && (data.error || data.message)) || "입실 실패", body: data };
+      // 서버가 준 에러 메시지 최대한 보여주기
+      const errMsg = (data && (data.error || data.message)) || `서버 에러 ${res.status}`;
+      return { ok: false, message: errMsg, body: data, status: res.status };
     }
 
-    // 기대: data.reservation (또는 바로 reservation 객체)
     return { ok: true, data };
   } catch (err) {
-    console.error("입실 API 호출 중 오류 발생:", err);
-    return { ok: false, message: "네트워크 오류가 발생했습니다." };
+    console.error("입실 API 호출 중 네트워크 오류:", err);
+    return { ok: false, message: "네트워크 오류가 발생했습니다.", error: err };
   }
 }
 
 // 로컬에 내 예약 저장 (seat 페이지가 읽음)
 function saveMyReservation(obj) {
   localStorage.setItem("myReservation", JSON.stringify(obj));
-  // lastReservationId도 업데이트
-  if (obj && obj.id) localStorage.setItem("lastReservationId", String(obj.id));
+  // lastReservationId도 숫자 형태로 저장
+  if (obj && obj.id != null) localStorage.setItem("lastReservationId", String(obj.id));
   if (obj && obj.seat) localStorage.setItem("lastSeat", String(obj.seat));
   if (obj && obj.room) localStorage.setItem("lastSeatRoom", String(obj.room));
 }
@@ -76,25 +85,23 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // 서버팀이 6자리 PIN을 준다고 하셨으므로 6자리로 검사 (변경 포인트)
+    // 서버가 준 PIN 길이를 알고 있다면 검증 (예: 6자리)
     if (!/^\d{6}$/.test(pin)) {
       alert("유효하지 않은 PIN 형식입니다. (예: 숫자 6자리)");
       btn.disabled = false;
       return;
     }
 
-    // 서버에 체크인 요청
+    // 서버 호출 (reservationId는 숫자로 변환해서 보냄)
     const res = await apiCheckin(reservationId, pin);
 
     if (res.ok) {
-      // 서버가 반환한 예약(정규화)
       const payload = res.data || {};
-      // 가능한 응답 형태 처리: { reservation: {...}, ... } 또는 바로 reservation 객체
       const reservation = payload.reservation || payload;
 
-      // 안전하게 필요한 필드를 골라서 저장
+      // 서버가 보낸 reservation 구조에 안전하게 맞춰 저장
       const myRes = {
-        id: reservation.id || reservationId,
+        id: reservation.id != null ? Number(reservation.id) : Number(reservationId),
         room: reservation.room || (reservation.seat && reservation.seat.room) || localStorage.getItem("lastSeatRoom") || "",
         seat: reservation.seatNumber || (reservation.seat && (reservation.seat.seatNumber || reservation.seat.id)) || localStorage.getItem("lastSeat") || "",
         status: reservation.status || "CHECKED_IN",
@@ -105,17 +112,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
       saveMyReservation(myRes);
       alert("입실이 완료되었습니다! 좌석으로 이동합니다.");
-      // redirect — 페이지가 바뀌므로 btn 상태 복구 불필요
       window.location.href = "seat.html";
       return;
     }
 
-    // 실패 처리: 서버 연결 문제라면 로컬 폴백(테스트용) 제공
-    const okLocal = confirm("서버 응답 실패: " + (res.message || "알수없음") + "\n테스트용으로 로컬에서 임시 입실 처리하시겠어요?");
+    // 실패 처리 — 서버 메시지를 보여주고, 로컬 임시 처리 옵션 제공
+    console.warn("체크인 실패 응답:", res);
+    const okLocal = confirm("서버 응답 실패: " + (res.message || "알 수 없음") + "\n테스트용으로 로컬에서 임시 입실 처리하시겠어요?");
     if (okLocal) {
       const now = new Date();
       const myRes = {
-        id: reservationId,
+        id: Number(reservationId),
         room: localStorage.getItem("lastSeatRoom") || "901",
         seat: localStorage.getItem("lastSeat") || "",
         status: "CHECKED_IN",
