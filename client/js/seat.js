@@ -270,7 +270,15 @@ function updateSeatUI(room) {
   const now = new Date(); // ← 현재 시각
 
   seats.forEach(seatEl => {
-    const seatId = seatEl.dataset.seatId;
+    // ✅ 고정석은 항상 회색 + 선택 불가
+    if (seatEl.dataset.fixed === "true") {
+      seatEl.classList.remove("available");
+      seatEl.classList.add("used");
+      seatEl.style.pointerEvents = "none";
+      return; // 고정석이면 아래 로직은 건너뜀
+    }
+
+    const seatId = seatEl.dataset.seatId; // ← 필요합니다 (예약 매칭에 사용)
 
     // 기본값: 사용 가능
     seatEl.classList.remove("used");
@@ -297,9 +305,7 @@ function updateSeatUI(room) {
 // ----------------- 좌석/시간 선택 -----------------
 function onSeatClick(e) {
   const seat = e.currentTarget;
-
-    // 고정석만 막기
-  if (seat.dataset.fixed === "true") {
+  if (seat.dataset.fixed === "true") {  // ✅ 고정석 클릭 방지
     alert("고정석은 선택할 수 없습니다.");
     return;
   }

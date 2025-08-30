@@ -67,10 +67,14 @@
         <!-- 907호 -->
         <div id="room-907" class="room">
           <div class="room-canvas">
-            <div class="seat used" data-seat-id="fixed1" style="left:0px; top:40px;" data-i18n="fixedSeat">고정석</div>
-            <div class="seat used" data-seat-id="fixed2" style="left:0px; top:180px;" data-i18n="fixedSeat">고정석</div>
-            <div class="seat used" data-seat-id="fixed3" style="left:620px; top:40px;" data-i18n="fixedSeat">고정석</div>
+            <!-- 907호 고정석들: seat-id 제거 + data-fixed="true" 추가 -->
+            <div class="seat used" data-i18n="fixedSeat" data-fixed="true" style="left:0px; top:40px;">고정석</div>
+            <div class="seat used" data-i18n="fixedSeat" data-fixed="true" style="left:0px; top:180px;">고정석</div>
+            <div class="seat used" data-i18n="fixedSeat" data-fixed="true" style="left:620px; top:40px;">고정석</div>
+
+            <!-- 14번은 그대로 유지 (예약 가능) -->
             <div class="seat available" data-seat-id="14" style="left:620px; top:180px;">14</div>
+
           </div>
           <div class="legend">
             <span><i class="dot used"></i> <span data-i18n="used">사용 중</span></span>
