@@ -30,6 +30,26 @@ async function apiFetchReservations() {
   }
 }
 
+// --- PENDING TTL (20분) ---
+const PENDING_TTL_MIN = 20;
+const ONE_MIN = 60 * 1000;
+
+function getCreatedAtRaw(rec) {
+  const v = rec.createdAt || (rec.raw && rec.raw.createdAt);
+  return v ? new Date(v) : null;
+}
+
+function isActivePending(rec) {
+  const s = String(rec.status || "").toUpperCase();
+  if (s !== "PENDING" && s !== "CREATED") return false;
+  const ca = getCreatedAtRaw(rec);
+  // createdAt이 없으면(백엔드 미포함) 안전하게 '활성'으로 간주
+  if (!ca) return true;
+  return (Date.now() - ca.getTime()) < (PENDING_TTL_MIN * ONE_MIN);
+}
+
+
+
 // ----------------- 시간 표시 유틸 -----------------
 function formatTime(ms) {
   if (ms <= 0) return "만료됨";
@@ -70,8 +90,8 @@ async function renderSeats() {
     if (!seat) return;
     if (seat.dataset.fixed === "true") return;
 
-    // 상태별 좌석 색상 (예약/입실 모두 회색 처리 – 운영 정책에 맞게 유지)
-    if (status === "CHECKED_IN" || status === "PENDING") {
+    // 상태별 좌석 색상 (CHECKED_IN 또는 TTL 살아있는 PENDING만 회색)
+    if (status === "CHECKED_IN" || isActivePending(res)) {
       seat.classList.remove("available");
       seat.classList.add("used");
     }

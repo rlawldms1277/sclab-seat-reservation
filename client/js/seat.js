@@ -37,6 +37,25 @@ function hourFromLabel(label) {
   return m ? parseInt(m[1], 10) : null;
 }
 
+// ADD: PENDING 20분 TTL
+const PENDING_TTL_MIN = 20;
+const ONE_MIN = 60 * 1000;
+
+function getCreatedAt(rec) {
+  const v = rec.createdAt || (rec.raw && rec.raw.createdAt);
+  return v ? new Date(v) : null;
+}
+
+function isActivePending(rec) {
+  const s = String(rec.status || "").toUpperCase();
+  if (s !== "PENDING" && s !== "CREATED") return false;
+  const ca = getCreatedAt(rec);
+  // createdAt이 없으면(백엔드 미포함) 안전하게 ‘차단’으로 간주
+  if (!ca) return true;
+  return (Date.now() - ca.getTime()) < (PENDING_TTL_MIN * ONE_MIN);
+}
+
+
 // ----------------- 서버 호출 -----------------
 async function apiFetchReservations(room) {
   try {
@@ -117,6 +136,7 @@ function normalizeReservationRaw(raw) {
     endHourExclusive, // ← 보정값 사용
     status: raw.status || "",
     pin: raw.pin || null,
+    createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : null, // ADD
     raw
   };
 }
@@ -125,9 +145,18 @@ function cleanupLocalReservation() {
   try {
     const m = JSON.parse(localStorage.getItem("myReservation") || "null");
     if (!m) return;
+
     const now = new Date();
     const end = m.endTime ? new Date(m.endTime) : null;
     const status = String(m.status || "").toUpperCase();
+
+    // ADD: PENDING TTL 만료 체크
+    const ca = m.createdAt ? new Date(m.createdAt).getTime() : null;
+    const ttlExpired = ca ? (now - ca) >= (PENDING_TTL_MIN * ONE_MIN) : false;
+    if ((status === "PENDING" || status === "CREATED") && ttlExpired) {
+      localStorage.removeItem("myReservation");
+      return;
+    }  
 
     // 끝났거나(시간 지남) 종료 상태면 로컬에서 삭제
     if (!end || now >= end ||
@@ -160,6 +189,7 @@ function mergeLocalPendingReservation() {
     }
 
     const id = m.id || `${m.room}-${m.seat}-${m.startTime}`;
+    const createdAt = m.createdAt ? new Date(m.createdAt) : new Date(); // ADD
     const pending = {
       id,
       room: String(m.room),
@@ -170,6 +200,7 @@ function mergeLocalPendingReservation() {
       endHourExclusive,
       status: "PENDING",
       pin: m.pin || null,
+      createdAt: createdAt.toISOString(),
       raw: m
     };
 
@@ -209,14 +240,11 @@ function renderTimeStatusForSeat(seatId) {
     if (!matches.length) return;
 
     // 우선순위: CHECKED_IN > PENDING/CREATED
-    const hasCheckedIn = matches.some(r => String(r.status).toUpperCase() === "CHECKED_IN");
-    const hasPending   = matches.some(r => {
-      const s = String(r.status).toUpperCase();
-      return s === "PENDING" || s === "CREATED";
-    });
+    const hasCheckedIn   = matches.some(r => String(r.status).toUpperCase() === "CHECKED_IN");
+    const hasActivePend  = matches.some(r => isActivePending(r)); // CHANGE
 
     if (hasCheckedIn) { btn.classList.add("done");     btn.disabled = true; return; }
-    if (hasPending)   { btn.classList.add("reserved"); btn.disabled = true; return; }
+    if (hasActivePend){ btn.classList.add("reserved"); btn.disabled = true; return; }
     // FINISHED/EXPIRED/CANCELED 등만 있으면 선택 가능(표시/차단 없음)
   });
 }
@@ -269,6 +297,12 @@ function updateSeatUI(room) {
 // ----------------- 좌석/시간 선택 -----------------
 function onSeatClick(e) {
   const seat = e.currentTarget;
+
+    // 고정석만 막기
+  if (seat.dataset.fixed === "true") {
+    alert("고정석은 선택할 수 없습니다.");
+    return;
+  }
 
   $$(".seat.selected").forEach(s => s.classList.remove("selected"));
   seat.classList.add("selected");
@@ -332,21 +366,25 @@ reserveBtn.addEventListener("click", async () => {
   let   endLocal   = new Date(startLocal.getTime() + 4 * 60 * 60 * 1000); // 기본 4시간
 
   // 2) 같은 좌석에서 '막는 상태'의 이후 예약이 있으면 종료를 앞당김
-  const blocking = new Set(["PENDING", "CHECKED_IN", "CREATED"]);
+  //    (CHECKED_IN 이거나, TTL 내의 PENDING 만 ‘막는 예약’으로 간주)
   const future = state.reservations.filter(r =>
     String(r.room) === String(state.room) &&
     String(r.seat) === String(state.seat) &&
     r.startHour != null &&
     r.startHour >= selHour &&
-    blocking.has(String(r.status || "").toUpperCase())
+    (
+      String(r.status || "").toUpperCase() === "CHECKED_IN" ||
+      isActivePending(r) // ← TTL 살아있는 PENDING만 차단
+    )
   );
-  if (future.length) {
-    const nextStartHour = Math.min(...future.map(r => r.startHour));
-    const nextStartDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), nextStartHour, 0, 0, 0);
-    if (nextStartDate < endLocal) {
-      endLocal = new Date(nextStartDate.getTime()); // 다음 예약 ‘시작 시각’까지만 사용
-    }
+
+if (future.length) {
+  const nextStartHour = Math.min(...future.map(r => r.startHour));
+  const nextStartDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), nextStartHour, 0, 0, 0);
+  if (nextStartDate < endLocal) {
+    endLocal = new Date(nextStartDate.getTime());
   }
+}
 
   // 3) 서버 호출
   const apiResult = await apiCreateReservation({
@@ -381,6 +419,7 @@ reserveBtn.addEventListener("click", async () => {
     endHourExclusive,
     status: "PENDING",
     pin: apiResult.pin || rec.pin || null,
+    createdAt: new Date().toISOString(),
     raw:  apiResult.rec
   };
 
@@ -391,7 +430,8 @@ reserveBtn.addEventListener("click", async () => {
     status: "PENDING",
     startTime: pendingLocal.startTime,
     endTime: pendingLocal.endTime,
-    pin: pendingLocal.pin
+    pin: pendingLocal.pin,
+    createdAt: new Date().toISOString() // ADD
   }));
 
   // 6) 즉시 UI에 반영 (초록 표시)
@@ -405,7 +445,7 @@ reserveBtn.addEventListener("click", async () => {
 
   // 8) 알림 (표시용으로 끝 시각을 보기 좋게 보여주고 싶으면 여기서만 -1분/-1초 해도 됨)
   const pin = apiResult.pin || rec.pin || "UNKNOWN";
-  alert(`예약 완료!\n좌석: ${rec.seat}\n시간: ${state.time}\n입실 PIN: ${pin}`);
+  alert(`예약 완료 ! 20분내로 입실해주세요.\n좌석: ${rec.seat}\n시간: ${state.time}\n입실 PIN: ${pin}`);
 });
 
 
