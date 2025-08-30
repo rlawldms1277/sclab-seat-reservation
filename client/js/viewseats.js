@@ -48,7 +48,11 @@ async function renderSeats() {
     seat.classList.remove("used", "available", "reserved", "my-seat");
     seat.classList.add("available");
 
-    // 기존 남은시간 표시 제거
+    // ✅ 기존 타이머 해제 + DOM 정리
+    if (seat.dataset.timerId) {
+      clearInterval(Number(seat.dataset.timerId));
+      delete seat.dataset.timerId;
+    }
     const oldTimer = seat.querySelector(".seat-timer");
     if (oldTimer) oldTimer.remove();
   });
@@ -58,16 +62,19 @@ async function renderSeats() {
   const currentUserId = currentUser ? (currentUser.id || currentUser.userId) : null;
 
   reservations.forEach((res) => {
-    const seat = $(`.seat[data-room="${res.room}"][data-seat-id="${res.seat}"]`);
+    // ✅ 백엔드 포맷 정규화(안전)
+    const room = res.room || (res.seat && res.seat.room);
+    const seatNo = res.seat || res.seatId || (res.seat && (res.seat.seatNumber || res.seat.id));
+    const status = String(res.status || "").toUpperCase();
+    const seat = $(`.seat[data-room="${room}"][data-seat-id="${seatNo}"]`);
     if (!seat) return;
     if (seat.dataset.fixed === "true") return;
 
-    // 상태별 좌석 색상 (예약도 사용중으로 표시)
-    if (res.status === "CHECKED_IN" || res.status === "PENDING") {
-    seat.classList.remove("available");
-    seat.classList.add("used"); // 예약이든 입실이든 회색으로
+    // 상태별 좌석 색상 (예약/입실 모두 회색 처리 – 운영 정책에 맞게 유지)
+    if (status === "CHECKED_IN" || status === "PENDING") {
+      seat.classList.remove("available");
+      seat.classList.add("used");
     }
-
 
     // 남은 시간 표시
     if (res.endTime) {
@@ -76,21 +83,27 @@ async function renderSeats() {
       timerEl.className = "seat-timer";
       timerEl.style.fontSize = "10px";
       timerEl.style.marginTop = "2px";
-      timerEl.style.color = "#fff"; // 글자색 (필요에 따라 수정)
-
+      timerEl.style.color = "#fff";
       seat.appendChild(timerEl);
 
-      // 타이머 업데이트
       const update = () => {
         const now = Date.now();
         const remain = endTime - now;
         timerEl.textContent = formatTime(remain);
+
+        // ✅ 만료되면 즉시 가용 처리 + 인터벌 해제
         if (remain <= 0) {
+          seat.classList.remove("used");
+          seat.classList.add("available");
+          clearInterval(Number(seat.dataset.timerId));
+          delete seat.dataset.timerId;
           timerEl.textContent = "만료됨";
         }
       };
+
       update();
-      setInterval(update, 1000);
+      const id = setInterval(update, 1000);
+      seat.dataset.timerId = String(id); // 나중에 해제할 수 있게 seat에 보관
     }
 
     // 내 좌석 강조
@@ -135,6 +148,20 @@ function init() {
 
   // 초기 렌더링 + 주기적 갱신
   renderSeats();
+
+  
+  // ✅ 다른 탭에서 입실/퇴실/예약 변경되면 실시간 반영
+  window.addEventListener("storage", (ev) => {
+    if (["reservationUpdate", "myReservation", "lastReservationId"].includes(ev.key)) {
+      renderSeats();  // 서버에서 다시 받아서 전체 갱신
+    }
+  });
+
+  // ✅ 탭을 다시 볼 때도 즉시 새로고침(백그라운드에서 시간 흘렀을 수 있으니)
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) renderSeats();
+  });
+
   setInterval(renderSeats, 30000); // 30초마다 전체 새로고침
 }
 

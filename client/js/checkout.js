@@ -66,8 +66,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (result.ok) {
     alert("퇴실이 완료되었습니다. 이용해주셔서 감사합니다!");
 
-    // 다른 탭에 알림
-    localStorage.setItem("reservationUpdate", JSON.stringify({ action: "checkout", reservationId: Number(reservationId), ts: Date.now() }));
+    // ✅ 모든 탭/페이지에 좌석 상태 변경 신호 브로드캐스트
+    localStorage.setItem("reservationUpdate", Date.now().toString());
 
     // 로컬 정리
     localStorage.removeItem("lastReservationId");

@@ -68,12 +68,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const result = await apiCheckin(reservationId, pin);
 
+      // ...생략...
+
       if (result.ok) {
+        // 1) 다른 탭/창에게 "상태 바뀜" 브로드캐스트 → seat.js의 storage 리스너가 받아 자동 새로고침
+        localStorage.setItem("reservationUpdate", Date.now().toString());
+
+        // 2) (선택) 현재 탭에서도 즉시 빨강(입실중) 반영: 내 예약 로컬 상태를 CHECKED_IN으로 변경
+        const m = JSON.parse(localStorage.getItem("myReservation") || "null");
+        if (m) {
+          m.status = "CHECKED_IN";
+
+          // (선택) 서버가 startTime/endTime을 돌려줬다면 함께 동기화
+          const payload = result.data || {};
+          const reservation = payload.reservation || payload;
+          if (reservation && reservation.startTime) m.startTime = reservation.startTime;
+          if (reservation && reservation.endTime)   m.endTime   = reservation.endTime;
+
+          localStorage.setItem("myReservation", JSON.stringify(m));
+        }
+
         alert("입실이 완료되었습니다! 이제 4시간 동안 사용 가능합니다.");
-        window.location.href = "seat.html"; // 입실 후 seat.html로 리다이렉트
+        window.location.href = "seat.html"; // <= 이 줄은 맨 마지막(브로드캐스트 후) 유지
       } else {
         alert("입실 실패: " + result.message);
       }
+
     });
   }
 });
