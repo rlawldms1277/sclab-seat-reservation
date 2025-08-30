@@ -15,6 +15,57 @@ function authHeaders() {
     : { "Content-Type": "application/json" };
 }
 
+/* 🔹 [ADD 1] 여기 추가: TTL/활성예약 복구 유틸 */
+const PENDING_TTL_MIN = 20;
+const ONE_MIN = 60 * 1000;
+
+function isActivePending(rec) {
+  if (!rec || String(rec.status).toUpperCase() !== "PENDING") return false;
+  const ca = rec.createdAt ? new Date(rec.createdAt) : null;
+  if (!ca) return true; // createdAt이 없으면 안전하게 차단 취급
+  return (Date.now() - ca.getTime()) < (PENDING_TTL_MIN * ONE_MIN);
+}
+
+// 서버에서 내 활성 예약(체크인중 또는 TTL 내 PENDING)을 찾아 로컬에 복구
+async function recoverMyActiveReservation() {
+  try {
+    const res = await fetch(`${BASE_URL}/reservations`, { headers: authHeaders() });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const list = data.reservations || data || [];
+
+    const me = JSON.parse(localStorage.getItem("user") || "null");
+    if (!me) return null;
+    const now = new Date();
+
+    const mine = list.filter(r => Number(r.userId) === Number(me.id));
+    const active = mine.find(r => {
+      const s = String(r.status || "").toUpperCase();
+      if (s === "CHECKED_IN") return r.endTime && now < new Date(r.endTime);
+      if (s === "PENDING")    return isActivePending(r);
+      return false;
+    });
+    if (!active) return null;
+
+    // 로컬 복구(entering/seat 공통으로 쓰는 키)
+    localStorage.setItem("myReservation", JSON.stringify({
+      id:        String(active.id),
+      room:      String(active.seat?.room ?? active.room),
+      seat:      String(active.seat?.seatNumber ?? active.seatId),
+      status:    String(active.status || "PENDING"),
+      startTime: active.startTime || null,
+      endTime:   active.endTime   || null,
+      createdAt: active.createdAt || new Date().toISOString()
+    }));
+    localStorage.setItem("lastReservationId", String(active.id));
+    localStorage.setItem("reservationUpdate", Date.now().toString());
+    return active;
+  } catch {
+    return null;
+  }
+}
+
+
 // ✅ 입실(체크인) API
 async function apiCheckin(reservationId, pin) {
   try {
@@ -37,10 +88,12 @@ async function apiCheckin(reservationId, pin) {
 }
 
 // DOM 로드 후 실행
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   // ✅ 로그인 강제 검사 + 사용자 표시
   requireLogin();
   renderLoggedInUser();
+
+  await recoverMyActiveReservation();
 
   const checkinForm = $(".entering-form");
   const pinInput = $(".input-pill input");
@@ -49,14 +102,20 @@ document.addEventListener("DOMContentLoaded", () => {
     checkinForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const pin = pinInput.value.trim();
-      const reservationId = localStorage.getItem("lastReservationId");
+
+      // 🔹 [ADD 3] 제출 직전에도 보수적으로 복구 시도
+      let reservationId = localStorage.getItem("lastReservationId");
+      if (!reservationId) {
+        await recoverMyActiveReservation();
+        reservationId = localStorage.getItem("lastReservationId");
+      }
 
       if (!pin) {
         alert("입실 번호를 입력해주세요.");
         return;
       }
       if (!reservationId) {
-        alert("예약 정보가 없습니다. 먼저 자리를 예약해주세요.");
+        alert("활성 예약을 찾을 수 없습니다. 먼저 자리를 예약하거나 새로고침 후 다시 시도해주세요.");
         return;
       }
 
@@ -68,7 +127,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const result = await apiCheckin(reservationId, pin);
 
-      // ...생략...
 
       if (result.ok) {
         // 1) 다른 탭/창에게 "상태 바뀜" 브로드캐스트 → seat.js의 storage 리스너가 받아 자동 새로고침
@@ -88,7 +146,7 @@ document.addEventListener("DOMContentLoaded", () => {
           localStorage.setItem("myReservation", JSON.stringify(m));
         }
 
-        alert("입실이 완료되었습니다! 이제 4시간 동안 사용 가능합니다.");
+        alert("입실이 완료되었습니다. 4시간 동안 사용 가능합니다.");
         window.location.href = "seat.html"; // <= 이 줄은 맨 마지막(브로드캐스트 후) 유지
       } else {
         alert("입실 실패: " + result.message);
