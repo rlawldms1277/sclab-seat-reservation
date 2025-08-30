@@ -92,14 +92,20 @@ async function apiCreateReservation({ seat, startTimeISO, endTimeISO }) {
 function normalizeReservationRaw(raw) {
   const room = raw.room || raw.roomId || state.room;
   let seat = raw.seat || raw.seatId;
-  if (seat && typeof seat === "object") {
-    seat = seat.seatNumber || seat.id;
-  }
+  if (seat && typeof seat === "object") seat = seat.seatNumber || seat.id;
+
   const start = raw.startTime;
   const end   = raw.endTime;
-
   const startDate = start ? new Date(start) : null;
   const endDate   = end ? new Date(end) : null;
+
+  let endHourExclusive = null;
+  if (endDate) {
+    endHourExclusive = endDate.getHours();
+    if (endDate.getMinutes() > 0 || endDate.getSeconds() > 0 || endDate.getMilliseconds() > 0) {
+      endHourExclusive += 1; // ← 여기 보정
+    }
+  }
 
   return {
     id: raw.id || `${room}-${seat}-${start}`,
@@ -108,12 +114,54 @@ function normalizeReservationRaw(raw) {
     startTime: startDate ? startDate.toISOString() : null,
     endTime: endDate ? endDate.toISOString() : null,
     startHour: startDate ? startDate.getHours() : null,
-    endHourExclusive: endDate ? endDate.getHours() : null,
+    endHourExclusive, // ← 보정값 사용
     status: raw.status || "",
     pin: raw.pin || null,
     raw
   };
 }
+
+
+// 로컬에 저장된 내 예약(PENDING)을 state.reservations에 합쳐 넣어 새로고침해도 초록 유지
+function mergeLocalPendingReservation() {
+  try {
+    const m = JSON.parse(localStorage.getItem("myReservation") || "null");
+    if (!m) return;
+    if (String(m.room) !== String(state.room)) return;
+
+    const status = String(m.status || "").toUpperCase();
+    if (status !== "PENDING") return;
+
+    const start = m.startTime ? new Date(m.startTime) : null;
+    const end   = m.endTime ? new Date(m.endTime) : null;
+    if (!start || !end) return;
+
+    let endHourExclusive = end.getHours();
+    if (end.getMinutes() > 0 || end.getSeconds() > 0 || end.getMilliseconds() > 0) {
+      endHourExclusive += 1;
+    }
+
+    const id = m.id || `${m.room}-${m.seat}-${m.startTime}`;
+    const pending = {
+      id,
+      room: String(m.room),
+      seat: String(m.seat),
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+      startHour: start.getHours(),
+      endHourExclusive,
+      status: "PENDING",
+      pin: m.pin || null,
+      raw: m
+    };
+
+    const idx = state.reservations.findIndex(r => r.id === id);
+    if (idx >= 0) state.reservations[idx] = pending;
+    else state.reservations.push(pending);
+  } catch (e) {}
+}
+
+
 
 // ----------------- UI 렌더링 -----------------
 function renderTimeStatusForSeat(seatId) {
@@ -158,9 +206,11 @@ async function refreshReservationsForRoom(room) {
   const raw = await apiFetchReservations(room);
   state.reservations = raw.map(normalizeReservationRaw);
 
+  // ✅ 로컬 PENDING 합치기 (새로고침해도 '예약중' 유지)
+  mergeLocalPendingReservation();
+
   // ✅ 좌석 현황 업데이트
   updateSeatUI(room);
-
   renderTimeStatusForSeat(state.seat);
 }
 
@@ -269,7 +319,46 @@ function bindActions() {
       const rec = normalizeReservationRaw(apiResult.rec);
       if (rec.id) localStorage.setItem("lastReservationId", rec.id);
 
+      // ✅ 로컬에 "내 예약(PENDING)" 저장 (새로고침해도 유지)
+      const start = rec.startTime ? new Date(rec.startTime) : null;
+      const end   = rec.endTime ? new Date(rec.endTime) : null;
+      let endHourExclusive = end ? end.getHours() : null;
+      if (end && (end.getMinutes() > 0 || end.getSeconds() > 0 || end.getMilliseconds() > 0)) {
+        endHourExclusive += 1;
+      }
+
+      const pendingLocal = {
+        id: rec.id || `${rec.room}-${rec.seat}-${rec.startTime}`,
+        room: rec.room,
+        seat: rec.seat,
+        startTime: rec.startTime,
+        endTime: rec.endTime,
+        startHour: start ? start.getHours() : null,
+        endHourExclusive,
+        status: "PENDING",
+        pin: apiResult.pin || rec.pin || null,
+        raw: apiResult.rec
+      };
+
+      localStorage.setItem("myReservation", JSON.stringify({
+        id: pendingLocal.id,
+        room: pendingLocal.room,
+        seat: pendingLocal.seat,
+        status: "PENDING",
+        startTime: pendingLocal.startTime,
+        endTime: pendingLocal.endTime,
+        pin: pendingLocal.pin
+      }));
+
+      // ✅ 즉시 상태 반영(초록 칠하기)
+      const idx = state.reservations.findIndex(r => r.id === pendingLocal.id);
+      if (idx >= 0) state.reservations[idx] = pendingLocal;
+      else state.reservations.push(pendingLocal);
+      renderTimeStatusForSeat(String(pendingLocal.seat));
+
+      // 이후 서버 최신화 (②번 merge 호출이 있어야 색 유지)
       await refreshReservationsForRoom(state.room);
+
       const pin = apiResult.pin || rec.pin || "UNKNOWN";
       alert(`예약 완료!\n좌석: ${rec.seat}\n시간: ${state.time}\n입실 PIN: ${pin}`);
     } else {
