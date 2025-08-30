@@ -401,6 +401,7 @@ if (future.length) {
 
   if (!apiResult.ok) {
     alert("예약 실패: " + (apiResult.reason || "서버 오류"));
+    refreshReservationsForRoom(state.room);
     return;
   }
 
@@ -440,6 +441,9 @@ if (future.length) {
     createdAt: new Date().toISOString() // ADD
   }));
 
+  // 예약 성공 후(로컬 저장 직후) 다른 탭에 변경 알림 브로드캐스트
+  localStorage.setItem("reservationUpdate", Date.now().toString());
+
   // 6) 즉시 UI에 반영 (초록 표시)
   const idx = state.reservations.findIndex(r => r.id === pendingLocal.id);
   if (idx >= 0) state.reservations[idx] = pendingLocal;
@@ -473,6 +477,11 @@ function init() {
 
   bindActions();
 
+    // ✅ 탭을 다시 볼 때 즉시 서버에서 최신 예약을 가져와 반영
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshReservationsForRoom(state.room);
+  });
+
   window.addEventListener("storage", (ev) => {
     if (["myReservation", "reservationUpdate", "lastReservationId"].includes(ev.key)) {
       refreshReservationsForRoom(state.room);
@@ -481,7 +490,7 @@ function init() {
 
    // ✅ 선택(권장): 주기적 새로고침 (중복 방지 가드)
   if (!window.__seatPoll) {
-    window.__seatPoll = setInterval(() => refreshReservationsForRoom(state.room), 30_000);
+    window.__seatPoll = setInterval(() => refreshReservationsForRoom(state.room), 10_000);
   }
 
 
