@@ -121,6 +121,24 @@ function normalizeReservationRaw(raw) {
   };
 }
 
+function cleanupLocalReservation() {
+  try {
+    const m = JSON.parse(localStorage.getItem("myReservation") || "null");
+    if (!m) return;
+    const now = new Date();
+    const end = m.endTime ? new Date(m.endTime) : null;
+    const status = String(m.status || "").toUpperCase();
+
+    // 끝났거나(시간 지남) 종료 상태면 로컬에서 삭제
+    if (!end || now >= end ||
+        status === "FINISHED" || status === "EXPIRED" || status === "CANCELED") {
+      localStorage.removeItem("myReservation");
+    }
+  } catch (e) {}
+}
+
+
+
 
 // 로컬에 저장된 내 예약(PENDING)을 state.reservations에 합쳐 넣어 새로고침해도 초록 유지
 function mergeLocalPendingReservation() {
@@ -183,26 +201,23 @@ function renderTimeStatusForSeat(seatId) {
       btnHour >= r.startHour && btnHour < r.endHourExclusive
     );
 
-  if (found) {
-    const st = String(found.status).toUpperCase();
-    if (st === "PENDING") {
-      btn.classList.add("reserved");   // 예약 대기 → 초록
-      btn.disabled = true;
-    } else if (st === "CHECKED_IN") {
-      btn.classList.add("done");       // 입실 → 빨강
-      btn.disabled = true;
-    } else if (st === "FINISHED" || st === "EXPIRED") {
-      btn.classList.add("done");       // 완료 → 빨강
-      btn.disabled = true;
-    } else if (st === "CANCELED") {
-      btn.classList.add("reserved");   // 취소 → 초록(지금 reserved 색상)
-      btn.disabled = true;
-    }
+if (found) {
+  const st = String(found.status).toUpperCase();
+  if (st === "CHECKED_IN") {
+    btn.classList.add("done");     // 입실 중인 시간만 빨강 + 비활성
+    btn.disabled = true;
+  } else if (st === "PENDING") {
+    btn.classList.add("reserved"); // 입실 전 예약중만 초록 + 비활성
+    btn.disabled = true;
   }
+  // FINISHED / EXPIRED / CANCELED 는 표시/차단 X → 다시 선택 가능
+}
   });
 }
 
 async function refreshReservationsForRoom(room) {
+  cleanupLocalReservation(); // ← 이 줄을 맨 앞에 추가
+
   const raw = await apiFetchReservations(room);
   state.reservations = raw.map(normalizeReservationRaw);
 
