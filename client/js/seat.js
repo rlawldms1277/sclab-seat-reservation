@@ -37,6 +37,16 @@ function hourFromLabel(label) {
   return m ? parseInt(m[1], 10) : null;
 }
 
+// 로컬 날짜를 YYYY-MM-DD 로 반환
+function localDateStr(d) {
+  if (!d) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2, "0");
+  const da = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${da}`;
+}
+
+
 // ADD: PENDING 20분 TTL
 const PENDING_TTL_MIN = 20;
 const ONE_MIN = 60 * 1000;
@@ -136,7 +146,8 @@ function normalizeReservationRaw(raw) {
     endHourExclusive, // ← 보정값 사용
     status: raw.status || "",
     pin: raw.pin || null,
-    createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : null, // ADD
+    createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : null, 
+    startDateOnly: startDate ? localDateStr(startDate) : null,
     raw
   };
 }
@@ -216,6 +227,7 @@ function mergeLocalPendingReservation() {
 function renderTimeStatusForSeat(seatId) {
   const timeButtons = $$(".time-grid button");
   const reservations = state.reservations || [];
+  const todayStr = localDateStr(new Date());
 
   // 초기화
   timeButtons.forEach(btn => {
@@ -231,6 +243,7 @@ function renderTimeStatusForSeat(seatId) {
 
     // 동일 좌석/방 + 해당 시간에 겹치는 모든 예약 수집
     const matches = reservations.filter(r =>
+      r.startDateOnly === todayStr && 
       String(r.room) === String(state.room) &&
       String(r.seat) === String(seatId) &&
       r.startHour != null && r.endHourExclusive != null &&
@@ -268,6 +281,7 @@ function updateSeatUI(room) {
   const reservations = state.reservations || [];
   const seats = $$("#room-" + room + " .seat");
   const now = new Date(); // ← 현재 시각
+  const todayStr = localDateStr(now);
 
   seats.forEach(seatEl => {
     // ✅ 고정석은 항상 회색 + 선택 불가
@@ -286,6 +300,7 @@ function updateSeatUI(room) {
 
     // 지금 시각에 겹치는 CHECKED_IN 예약이 있으면 used
     const isUsedNow = reservations.some(r =>
+      r.startDateOnly === todayStr && 
       String(r.room) === String(room) &&
       String(r.seat) === String(seatId) &&
       String(r.status).toUpperCase() === "CHECKED_IN" &&
@@ -374,6 +389,7 @@ reserveBtn.addEventListener("click", async () => {
   // 2) 같은 좌석에서 '막는 상태'의 이후 예약이 있으면 종료를 앞당김
   //    (CHECKED_IN 이거나, TTL 내의 PENDING 만 ‘막는 예약’으로 간주)
   const future = state.reservations.filter(r =>
+    r.startDateOnly === localDateStr(today) &&
     String(r.room) === String(state.room) &&
     String(r.seat) === String(state.seat) &&
     r.startHour != null &&
