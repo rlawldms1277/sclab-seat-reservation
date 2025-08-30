@@ -1,9 +1,13 @@
 // js/seat.js
 
+
 import { renderLoggedInUser, requireLogin } from "./user.js";
+
+
 
 // ----------------- 서버 주소 -----------------
 const BASE_URL = "https://lab-reserve-backend.onrender.com";
+
 
 // ----------------- 상태 관리 -----------------
 const state = { room: "901", seat: null, time: null, user: null, reservations: [] };
@@ -37,7 +41,7 @@ function hourFromLabel(label) {
 async function apiFetchReservations(room) {
   try {
     const url = room 
-      ? `${BASE_URL}/reservations?room=${encodeURIComponent(room)}`
+      ? `${BASE_URL}/reservations?room=${room}`   // 숫자로 전달
       : `${BASE_URL}/reservations`;
 
     const res = await fetch(url, {
@@ -64,7 +68,7 @@ async function apiCreateReservation({ seat, startTimeISO, endTimeISO }) {
 
     const res = await fetch(`${BASE_URL}/reservations?dev=1`, {
       method: "POST",
-      headers: authHeaders(),
+      headers: authHeaders(),  // ✅ 반드시 토큰 포함
       body: JSON.stringify(body)
     });
 
@@ -75,7 +79,7 @@ async function apiCreateReservation({ seat, startTimeISO, endTimeISO }) {
     return {
       ok: true,
       rec: data.reservation || data,
-      pin: data.devPin || data.pin || null
+      pin: data.devPin || null
     };
   } catch (err) {
     console.warn("apiCreateReservation failed:", err);
@@ -86,37 +90,16 @@ async function apiCreateReservation({ seat, startTimeISO, endTimeISO }) {
 
 // ----------------- 정규화 함수 -----------------
 function normalizeReservationRaw(raw) {
-  // room: raw.room | raw.roomId | raw.seat?.room | fallback state.room
-  let room = raw.room || raw.roomId || (raw.seat && raw.seat.room) || state.room;
-
-  // seat: raw.seatId | raw.seat | if object -> seatNumber or id
-  let seat = raw.seatId || raw.seat;
+  const room = raw.room || raw.roomId || state.room;
+  let seat = raw.seat || raw.seatId;
   if (seat && typeof seat === "object") {
-    seat = seat.seatNumber != null ? seat.seatNumber : (seat.id != null ? seat.id : seat);
-    // if room wasn't set earlier, try seat.room
-    if ((!room || room === "undefined") && seat && typeof raw.seat === "object" && raw.seat.room) {
-      room = raw.seat.room;
-    }
+    seat = seat.seatNumber || seat.id;
   }
-
-  const start = raw.startTime || raw.start;
-  const end   = raw.endTime || raw.end;
+  const start = raw.startTime;
+  const end   = raw.endTime;
 
   const startDate = start ? new Date(start) : null;
   const endDate   = end ? new Date(end) : null;
-
-  // startHour은 시작 시각의 정수 시
-  const startHour = startDate ? startDate.getHours() : null;
-
-  // endHourExclusive: 종료 시각의 시(hour)를 배타적으로 비교하는 값.
-  // 만약 종료 시각에 분 또는 초가 0보다 크면 해당 '종료 시의 시'도 포함되어야 하므로 +1 처리
-  let endHourExclusive = null;
-  if (endDate) {
-    endHourExclusive = endDate.getHours();
-    if (endDate.getMinutes() > 0 || endDate.getSeconds() > 0 || endDate.getMilliseconds() > 0) {
-      endHourExclusive = endHourExclusive + 1;
-    }
-  }
 
   return {
     id: raw.id || `${room}-${seat}-${start}`,
@@ -124,10 +107,10 @@ function normalizeReservationRaw(raw) {
     seat: String(seat),
     startTime: startDate ? startDate.toISOString() : null,
     endTime: endDate ? endDate.toISOString() : null,
-    startHour: startHour,
-    endHourExclusive: endHourExclusive,
-    status: raw.status || raw.state || "",
-    pin: raw.devPin || raw.pin || null,
+    startHour: startDate ? startDate.getHours() : null,
+    endHourExclusive: endDate ? endDate.getHours() : null,
+    status: raw.status || "",
+    pin: raw.pin || null,
     raw
   };
 }
@@ -137,7 +120,6 @@ function renderTimeStatusForSeat(seatId) {
   const timeButtons = $$(".time-grid button");
   const reservations = state.reservations || [];
 
-  // 초기화
   timeButtons.forEach(btn => {
     btn.classList.remove("reserved", "done", "picked");
     btn.disabled = false;
@@ -145,69 +127,48 @@ function renderTimeStatusForSeat(seatId) {
 
   if (!seatId) return;
 
-  // 각 시간버튼에 대해 이 시간에 겹치는 예약이 있는지 검사
   timeButtons.forEach(btn => {
-    const btnHour = hourFromLabel(btn.textContent);
-    if (btnHour === null) return;
-
-    // 동일 좌석/방에 대해 이 시간에 겹치는 모든 예약을 찾음
-    const matches = reservations.filter(r =>
+    const btnHour = parseInt(btn.textContent);
+    const found = reservations.find(r =>
       String(r.room) === String(state.room) &&
       String(r.seat) === String(seatId) &&
-      r.startHour !== null &&
-      r.endHourExclusive !== null &&
       btnHour >= r.startHour && btnHour < r.endHourExclusive
     );
 
-    if (matches.length === 0) return;
-
-    // 우선순위:
-    // 1) CHECKED_IN (입실중) -> done(빨간/완료 스타일) / 비활성
-    // 2) PENDING (예약중) -> reserved(초록/예약중 스타일) / 비활성
-    // 다른 상태 (FINISHED, EXPIRED, CANCELED 등)는 '과거/취소'로 보고 선택 가능하게 둠.
-    if (matches.some(r => String(r.status || "").toUpperCase() === "CHECKED_IN")) {
-      btn.classList.add("done");
+  if (found) {
+    const st = String(found.status).toUpperCase();
+    if (st === "PENDING") {
+      btn.classList.add("reserved");   // 예약 대기 → 초록
       btn.disabled = true;
-      return;
-    }
-
-    if (matches.some(r => String(r.status || "").toUpperCase() === "PENDING")) {
-      btn.classList.add("reserved");
+    } else if (st === "CHECKED_IN") {
+      btn.classList.add("done");       // 입실 → 빨강
       btn.disabled = true;
-      return;
+    } else if (st === "FINISHED" || st === "EXPIRED") {
+      btn.classList.add("done");       // 완료 → 빨강
+      btn.disabled = true;
+    } else if (st === "CANCELED") {
+      btn.classList.add("reserved");   // 취소 → 초록(지금 reserved 색상)
+      btn.disabled = true;
     }
-
-    // matches 전부가 FINISHED/EXPIRED/CANCELED 등인 경우
-    // 버튼은 활성화 상태로 둠 (선택 가능)
+  }
   });
 }
 
-
 async function refreshReservationsForRoom(room) {
   const raw = await apiFetchReservations(room);
-  console.log("[API reservations raw]", raw);
-  state.reservations = (raw || []).map(normalizeReservationRaw);
-  console.log("[normalized reservations]", state.reservations);
+  state.reservations = raw.map(normalizeReservationRaw);
 
-  // 좌석 현황 업데이트
+  // ✅ 좌석 현황 업데이트
   updateSeatUI(room);
 
   renderTimeStatusForSeat(state.seat);
-
-  applyLocalMyReservation();
-
-  // 서버에서 받아온 reservations를 로컬에 저장 (폴백)
-  try {
-    saveLocalReservations(state.reservations);
-  } catch (e) {}
 }
 
 function updateSeatUI(room) {
-  const reservations = state.reservations || [];
+  const reservations = state.reservations;
 
   // 현재 방의 좌석 DOM들 가져오기
   const seats = $$("#room-" + room + " .seat");
-  const now = new Date();
 
   seats.forEach(seatEl => {
     const seatId = seatEl.dataset.seatId;
@@ -215,85 +176,32 @@ function updateSeatUI(room) {
     seatEl.classList.remove("used");
     seatEl.classList.add("available");
 
-    // 동일 좌석에 대해 CHECKED_IN 상태이면서 현재 시간이 start~end 사이인 예약이 있으면 used
-    const overlapping = reservations.find(r =>
+    // 서버 데이터에서 해당 좌석 찾아오기
+    const found = reservations.find(r =>
       String(r.room) === String(room) &&
-      String(r.seat) === String(seatId) &&
-      String(r.status || "").toUpperCase() === "CHECKED_IN" &&
-      r.startTime && r.endTime &&
-      (new Date(r.startTime) <= now && now < new Date(r.endTime))
+      String(r.seat) === String(seatId)
     );
 
-    if (overlapping) {
-      seatEl.classList.remove("available");
-      seatEl.classList.add("used");
+    if (found) {
+      const st = String(found.status).toUpperCase();
+      if (st === "CHECKED_IN") {
+        seatEl.classList.remove("available");
+        seatEl.classList.add("used");   // ✅ 회색으로 표시
+      }
     }
   });
 }
 
 
-// ----------------- 로컬 체크인(또는 폴백) UI 반영 -----------------
-function applyLocalMyReservation() {
-  try {
-    const myRes = JSON.parse(localStorage.getItem("myReservation") || "null");
-    if (!myRes || !myRes.seat || !myRes.room) return;
-    // 현재 보고 있는 방과 다르면 무시
-    if (String(myRes.room) !== String(state.room)) return;
-
-    // 좌석 DOM 찾기 및 used 표시
-    const seatEl = document.querySelector(`#room-${state.room} .seat[data-seat-id="${String(myRes.seat)}"]`);
-    if (seatEl) {
-      seatEl.classList.remove("available");
-      seatEl.classList.add("used");
-    }
-
-    // 시간 버튼도 start/end 기준으로 done(reserved) 표시
-    const start = myRes.startTime ? new Date(myRes.startTime) : null;
-    const end = myRes.endTime ? new Date(myRes.endTime) : null;
-    const status = (myRes.status || "").toUpperCase();
-
-    if (start && end) {
-      $$(".time-grid button").forEach(btn => {
-        const h = hourFromLabel(btn.textContent);
-        if (h === null) return;
-
-        // endExclusive 계산 (이미 normalize 로직과 동일 처리)
-        let endExclusive = end.getHours();
-        if (end.getMinutes() > 0 || end.getSeconds() > 0 || end.getMilliseconds() > 0) endExclusive++;
-
-        if (h >= start.getHours() && h < endExclusive) {
-          btn.classList.remove("reserved", "done", "picked");
-          // CHECKED_IN -> done (입실 중), 그 외 (PENDING 등) -> reserved
-          if (status === "CHECKED_IN") {
-            btn.classList.add("done");
-          } else {
-            btn.classList.add("reserved");
-          }
-          btn.disabled = true;
-        }
-      });
-    }
-  } catch (e) {
-    // ignore
-  }
-}
-
-
-
-
 // ----------------- 좌석/시간 선택 -----------------
 function onSeatClick(e) {
   const seat = e.currentTarget;
-
-  // 'used' 클래스는 시각적 표시일 뿐, 다른 시간대 예약을 막아선 안 됩니다.
-  // 따라서 used 체크로 클릭을 차단하지 않습니다.
+  if (seat.classList.contains("used")) return;
 
   $$(".seat.selected").forEach(s => s.classList.remove("selected"));
   seat.classList.add("selected");
 
   state.seat = seat.dataset.seatId;
-
-  // 선택된 좌석에 대한 시간별 상태를 다시 그립니다.
   renderTimeStatusForSeat(state.seat);
 }
 
@@ -345,75 +253,14 @@ function bindActions() {
       return;
     }
 
-    // 예약 시작 시간
+    // 예약 시간 계산
     const selHour = hourFromLabel(state.time);
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), selHour, 0, 0, 0);
+    const end = new Date(start.getTime() + 4 * 60 * 60 * 1000); // 4시간
 
-    // 기본 종료 시간 = 시작 + 4시간
-    let end = new Date(start.getTime() + 4 * 60 * 60 * 1000);
-
-  // 같은 좌석에 이미 있는 예약 중 "시작 시간이 선택한 start 이후"인 것 찾기
-  const futureReservations = state.reservations.filter(r =>
-    String(r.room) === String(state.room) &&
-    String(r.seat) === String(state.seat) &&
-    r.startHour !== null &&
-    // *중요*: 같은 시각(selHour)인 예약은 제외 (strict >)
-    r.startHour > selHour
-  );
-
-  if (futureReservations.length > 0) {
-    // 가장 가까운 예약 시작 시각 찾기
-    const nextStart = Math.min(...futureReservations.map(r => r.startHour));
-    const nextStartDate = new Date(start.getFullYear(), start.getMonth(), start.getDate(), nextStart, 0, 0, 0);
-
-    // nextStartDate가 start보다 실제로 이후일 때만 end를 줄임
-    if (nextStartDate.getTime() > start.getTime()) {
-      end = new Date(nextStartDate.getTime() - 1); // 다음 예약 시작 직전까지만
-    }
-  }
-
-
-
-    // --- 검증 및 디버그 로그 추가 (아래를 "// 서버 예약 요청" 바로 위에 붙여넣으세요) ---
-    // selHour 가 정상인지 확인
-    if (selHour === null || Number.isNaN(selHour)) {
-      console.error("예약 실패: selHour invalid", { stateTime: state.time, selHour });
-      alert("예약 실패: 선택한 시간이 올바르지 않습니다.");
-      return;
-    }
-
-    // seatId가 숫자가 아닌 경우(예: fixed1) 서버에서 거절될 수 있으므로 차단
-    const seatNum = Number(state.seat);
-    if (Number.isNaN(seatNum)) {
-      console.error("예약 실패: seat id is not numeric", { seat: state.seat });
-      alert("예약 실패: 선택한 좌석은 예약할 수 없습니다.");
-      return;
-    }
-
-    // start/end 값 확인 (ISO 문자열로)
-    console.log("예약 요청 준비", {
-      seat: state.seat,
-      seatNum,
-      startISO: start.toISOString(),
-      endISO: end.toISOString(),
-      start,
-      end
-    });
-
-    // 서버에 보낼 직전 최종 검사: end가 start보다 커야 함
-    if (end.getTime() <= start.getTime()) {
-      console.error("예약 실패: end <= start", { start, end });
-      alert("예약 실패: 종료 시간이 시작 시간보다 빠릅니다.");
-      return;
-    }
-    // --- 여기까지 ---
-
-
-    // 서버 예약 요청
-    // >>> 여기서 반드시 숫자(seatNum)를 넘겨 서버 스키마(seatId:number)에 맞춥니다.
     const apiResult = await apiCreateReservation({
-      seat: seatNum,
+      seat: state.seat,
       startTimeISO: start.toISOString(),
       endTimeISO: end.toISOString()
     });
@@ -422,36 +269,14 @@ function bindActions() {
       const rec = normalizeReservationRaw(apiResult.rec);
       if (rec.id) localStorage.setItem("lastReservationId", rec.id);
 
-      // 서버 응답 기반으로 최근 좌석/방 정보 저장 (entering에서 사용)
-      if (rec.room) localStorage.setItem("lastSeatRoom", String(rec.room));
-      if (rec.seat) localStorage.setItem("lastSeat", String(rec.seat));
-
-      // (선택적) myReservation 임시 저장 — 서버 반영 전 UI 테스트용
-      localStorage.setItem("myReservation", JSON.stringify({
-        id: rec.id || null,
-        room: rec.room || localStorage.getItem("lastSeatRoom") || state.room,
-        seat: rec.seat || localStorage.getItem("lastSeat") || state.seat,
-        status: rec.status || "PENDING",
-        startTime: rec.startTime || start.toISOString(),
-        endTime: rec.endTime || end.toISOString(),
-        pin: apiResult.pin || rec.pin || null
-      }));
-
       await refreshReservationsForRoom(state.room);
       const pin = apiResult.pin || rec.pin || "UNKNOWN";
-
-      // 정확한 종료 표시: end는 '종료 시점의 시작'일 수 있으므로 -1ms 해서 표시
-      const displayEnd = new Date(end.getTime() - 1);
-      const endHourStr = String(displayEnd.getHours()).padStart(2, "0");
-      const endMinStr = String(displayEnd.getMinutes()).padStart(2, "0");
-
-      alert(`예약 완료!\n좌석: ${rec.seat}\n시간: ${state.time} ~ ${endHourStr}:${endMinStr}\n입실 PIN: ${pin}`);
+      alert(`예약 완료!\n좌석: ${rec.seat}\n시간: ${state.time}\n입실 PIN: ${pin}`);
     } else {
       alert("예약 실패: " + (apiResult.reason || "서버 오류"));
     }
   });
 
-  // ---- 이 부분은 reserveBtn 핸들러 밖에서 동작해야 합니다 ----
   leaveBtn.addEventListener("click", () => window.location.href = "checkout.html");
   extendBtn.addEventListener("click", () => alert("연장 기능 준비 중"));
 
@@ -460,26 +285,16 @@ function bindActions() {
 
 // ----------------- 초기화 -----------------
 function init() {
-  requireLogin();       // 로그인 안 했으면 index.html로 이동
-  renderLoggedInUser(); // 로그인 사용자 아이디 표시
+  requireLogin();       // ✅ 로그인 안 했으면 index.html로 이동
+  renderLoggedInUser(); // ✅ 로그인 사용자 아이디 표시
 
   $$(".room-btn").forEach(btn =>
     btn.addEventListener("click", () => switchRoom(btn.dataset.room))
   );
   $$(".seat").forEach(seat => seat.addEventListener("click", onSeatClick));
 
-  // init() 안 적당한 곳(초기화 끝부분)에 추가
-  window.addEventListener("storage", (ev) => {
-    if (ev.key === "myReservation" || ev.key === "lastReservationId" || ev.key === "reservationUpdate") {
-      refreshReservationsForRoom(state.room);
-    }
-  });
-
   bindActions();
   refreshReservationsForRoom(state.room);
-
-  // 30초마다 최신화
-  setInterval(() => refreshReservationsForRoom(state.room), 30 * 1000);
 }
 
 document.addEventListener("DOMContentLoaded", init);
