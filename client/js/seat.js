@@ -353,23 +353,26 @@ function bindActions() {
     // 기본 종료 시간 = 시작 + 4시간
     let end = new Date(start.getTime() + 4 * 60 * 60 * 1000);
 
-    // 같은 좌석에 이미 있는 예약 중 "시작 시간이 선택한 start 이후"인 것 찾기
-    const futureReservations = state.reservations.filter(r =>
-      String(r.room) === String(state.room) &&
-      String(r.seat) === String(state.seat) &&
-      r.startHour !== null &&
-      r.startHour >= selHour
-    );
+  // 같은 좌석에 이미 있는 예약 중 "시작 시간이 선택한 start 이후"인 것 찾기
+  const futureReservations = state.reservations.filter(r =>
+    String(r.room) === String(state.room) &&
+    String(r.seat) === String(state.seat) &&
+    r.startHour !== null &&
+    // *중요*: 같은 시각(selHour)인 예약은 제외 (strict >)
+    r.startHour > selHour
+  );
 
-    if (futureReservations.length > 0) {
-      // 가장 가까운 예약 시작 시각 찾기
-      const nextStart = Math.min(...futureReservations.map(r => r.startHour));
-      const nextStartDate = new Date(start.getFullYear(), start.getMonth(), start.getDate(), nextStart, 0, 0, 0);
+  if (futureReservations.length > 0) {
+    // 가장 가까운 예약 시작 시각 찾기
+    const nextStart = Math.min(...futureReservations.map(r => r.startHour));
+    const nextStartDate = new Date(start.getFullYear(), start.getMonth(), start.getDate(), nextStart, 0, 0, 0);
 
-      if (nextStartDate < end) {
-        end = new Date(nextStartDate.getTime() - 1); // 다음 예약 시작 직전까지만
-      }
+    // nextStartDate가 start보다 실제로 이후일 때만 end를 줄임
+    if (nextStartDate.getTime() > start.getTime()) {
+      end = new Date(nextStartDate.getTime() - 1); // 다음 예약 시작 직전까지만
     }
+  }
+
 
 
     // --- 검증 및 디버그 로그 추가 (아래를 "// 서버 예약 요청" 바로 위에 붙여넣으세요) ---
