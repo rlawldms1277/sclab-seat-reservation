@@ -51,6 +51,11 @@ function localDateStr(d) {
 const PENDING_TTL_MIN = 20;
 const ONE_MIN = 60 * 1000;
 
+
+const EXTEND_WINDOW_MIN = 20; // 종료 20분 전~종료까지 연장 가능
+const EXTEND_MAX_HOURS  = 3;  // 최대 3시간(서버와 의미 일치, 참고용)
+
+
 function getCreatedAt(rec) {
   const v = rec.createdAt || (rec.raw && rec.raw.createdAt);
   return v ? new Date(v) : null;
@@ -64,6 +69,22 @@ function isActivePending(rec) {
   if (!ca) return true;
   return (Date.now() - ca.getTime()) < (PENDING_TTL_MIN * ONE_MIN);
 }
+
+function updateExtendButtonState() {
+  const extendBtn = $("#btnExtend");
+  if (!extendBtn) return;
+  if (!state.seat) { extendBtn.disabled = true; extendBtn.title = "좌석을 먼저 선택하세요."; return; }
+
+  const base = findMyActiveReservationForSeat(state.seat);
+  if (!base) { extendBtn.disabled = true; extendBtn.title = "체크인된 내 예약이 없습니다."; return; }
+
+  const now = new Date(), end = new Date(base.endTime);
+  const earliest = new Date(end.getTime() - EXTEND_WINDOW_MIN * 60 * 1000);
+  const ok = (now >= earliest && now <= end);
+  extendBtn.disabled = !ok;
+  extendBtn.title = ok ? "" : `연장은 종료 ${EXTEND_WINDOW_MIN}분 전부터 종료 시까지 가능합니다.`;
+}
+
 
 
 // ----------------- 서버 호출 -----------------
@@ -117,9 +138,27 @@ async function apiCreateReservation({ seat, startTimeISO, endTimeISO }) {
 }
 
 
+async function apiExtendReservation(reservationId) {
+  try {
+    const res = await fetch(`${BASE_URL}/reservations/${reservationId}/extend`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({}) // 바디는 비워도 OK
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok:false, reason: data.error || data.message || "server error", body:data };
+    return { ok:true, rec: data.reservation || data };
+  } catch (e) {
+    console.warn("apiExtendReservation failed:", e);
+    return { ok:false, reason: "network" };
+  }
+}
+
+
 // ----------------- 정규화 함수 -----------------
 function normalizeReservationRaw(raw) {
   const room = raw.room || raw.roomId || (raw.seat && raw.seat.room) || state.room;
+  const userId = (raw.userId ?? (raw.user && raw.user.id)) ?? null;
   let seat = raw.seat || raw.seatId;
   if (seat && typeof seat === "object") seat = seat.seatNumber || seat.id;
 
@@ -154,6 +193,7 @@ function normalizeReservationRaw(raw) {
     pin: raw.pin || null,
     createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : null, 
     startDateOnly: startDate ? localDateStr(startDate) : null,
+    userId: userId != null ? Number(userId) : null,
     raw
   };
 }
@@ -229,6 +269,29 @@ function mergeLocalPendingReservation() {
 }
 
 
+function findMyActiveReservationForSeat(seatId) {
+  if (!seatId) return null;
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const myId = user ? Number(user.id) : null;
+
+  const now = new Date();
+  const todayStr = localDateStr(now);
+
+  const candidates = (state.reservations || []).filter(r => {
+    if (r.startDateOnly !== todayStr) return false;
+    if (String(r.room) !== String(state.room)) return false;
+    if (String(r.seatId ?? r.seat) !== String(seatId)) return false;
+    if (!r.startTime || !r.endTime) return false;
+    const st = new Date(r.startTime), et = new Date(r.endTime);
+    if (!(st <= now && now < et)) return false;     // 지금 시간대
+    if (r.userId != null && myId != null && Number(r.userId) !== myId) return false; // 내 예약만
+    return true;
+  });
+
+  // 서버 정책: CHECKED_IN만 연장 가능 → 그걸 우선 선택
+  return candidates.find(r => String(r.status).toUpperCase() === "CHECKED_IN") || null;
+}
+
 
 // ----------------- UI 렌더링 -----------------
 function renderTimeStatusForSeat(seatId) {
@@ -282,6 +345,7 @@ async function refreshReservationsForRoom(room) {
   // ✅ 좌석 현황 업데이트
   updateSeatUI(room);
   renderTimeStatusForSeat(state.seat);
+  updateExtendButtonState();
 }
 
 function updateSeatUI(room) {
@@ -337,6 +401,7 @@ function onSeatClick(e) {
 
   state.seat = seat.dataset.seatId;
   renderTimeStatusForSeat(state.seat);
+  updateExtendButtonState();
 }
 
 function onTimeClick(e) {
@@ -483,7 +548,47 @@ if (future.length) {
 
 
   leaveBtn.addEventListener("click", () => window.location.href = "checkout.html");
-  extendBtn.addEventListener("click", () => alert("연장 기능 준비 중"));
+  extendBtn.addEventListener("click", async () => {
+  // 1) 연장할 좌석이 선택돼 있어야 함(현재 사용 좌석을 클릭해 선택)
+  if (!state.seat) {
+    alert("연장할 좌석을 먼저 선택해주세요(현재 사용 중인 좌석).");
+    return;
+  }
+
+  // 2) 최신화
+  await refreshReservationsForRoom(state.room);
+
+  // 3) 지금 시간대의 '내' 체크인 예약 찾기
+  const base = findMyActiveReservationForSeat(state.seat);
+  if (!base) {
+    alert("현재 시간에 사용 중인 내 예약을 찾을 수 없습니다.\n(체크인 상태 + 같은 좌석이어야 합니다.)");
+    return;
+  }
+
+  // 4) 프론트 가드: 종료 20분 전 ~ 종료 사이만 허용
+  const now = new Date();
+  const endTime = new Date(base.endTime);
+  const earliest = new Date(endTime.getTime() - EXTEND_WINDOW_MIN * 60 * 1000);
+  if (now < earliest || now > endTime) {
+    alert(`연장은 종료 ${EXTEND_WINDOW_MIN}분 전부터 종료 시각까지 가능합니다.\n(현재 종료: ${endTime.toLocaleTimeString()})`);
+    return;
+  }
+
+  // 5) 서버에 연장 요청 (서버가 '다음 예약/최대 3시간'을 최종 판정)
+  const api = await apiExtendReservation(base.id);
+  if (!api.ok) {
+    alert("연장 실패: " + (api.reason || "서버 오류"));
+    await refreshReservationsForRoom(state.room);
+    return;
+  }
+
+  // 6) UI 갱신 및 안내
+  await refreshReservationsForRoom(state.room);
+  const updated = (state.reservations || []).find(r => String(r.id) === String(api.rec.id));
+  const newEnd = updated ? new Date(updated.endTime) : null;
+  alert(`연장 완료! 새 종료시각: ${newEnd ? newEnd.toLocaleTimeString() : "(갱신됨)"}`);
+});
+
 
   $$(".time-grid button").forEach(b => b.addEventListener("click", onTimeClick));
 }
