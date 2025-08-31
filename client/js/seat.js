@@ -240,6 +240,8 @@ function mergeLocalPendingReservation() {
     const end   = m.endTime ? new Date(m.endTime) : null;
     if (!start || !end) return;
 
+    const startDateOnly = localDateStr(start);
+
     let endHourExclusive = end.getHours();
     if (end.getMinutes() > 0 || end.getSeconds() > 0 || end.getMilliseconds() > 0) {
       endHourExclusive += 1;
@@ -255,6 +257,7 @@ function mergeLocalPendingReservation() {
       startTime: start.toISOString(),
       endTime: end.toISOString(),
       startHour: start.getHours(),
+      startDateOnly,
       endHourExclusive,
       status: "PENDING",
       pin: m.pin || null,
@@ -513,6 +516,7 @@ if (future.length) {
     endTime:   endLocal.toISOString(),
     startHour: selHour,
     endHourExclusive,
+    startDateOnly: localDateStr(startLocal),
     status: "PENDING",
     pin: apiResult.pin || rec.pin || null,
     createdAt: new Date().toISOString(),
