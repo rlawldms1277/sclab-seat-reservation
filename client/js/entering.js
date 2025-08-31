@@ -26,6 +26,30 @@ function isActivePending(rec) {
   return (Date.now() - ca.getTime()) < (PENDING_TTL_MIN * ONE_MIN);
 }
 
+
+// ✅ (entering.js) 토큰 검사 + /me 확인
+async function assertAuthOrRedirect() {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    alert('로그인이 필요합니다.');
+    location.href = 'login.html';
+    return false;
+  }
+  const me = await fetch(`${BASE_URL}/me`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (me.status !== 200) {
+    alert('세션이 만료되었습니다. 다시 로그인해주세요.');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    location.href = 'login.html';
+    return false;
+  }
+  return true;
+}
+
+
+
 // 서버에서 내 활성 예약(체크인중 또는 TTL 내 PENDING)을 찾아 로컬에 복구
 async function recoverMyActiveReservation() {
   try {
@@ -75,9 +99,10 @@ async function apiCheckin(reservationId, pin) {
       body: JSON.stringify({ reservationId: Number(reservationId), pin })
     });
 
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { ok: false, message: data.error || data.message || "입실 실패" };
+      const reason = data?.error || data?.message || `HTTP ${res.status}`;
+      return { ok: false, message: reason };   // ← 에러 원인 그대로 보여줌
     }
 
     return { ok: true, data };
@@ -90,6 +115,7 @@ async function apiCheckin(reservationId, pin) {
 // DOM 로드 후 실행
 document.addEventListener("DOMContentLoaded", async () => {
   // ✅ 로그인 강제 검사 + 사용자 표시
+   if (!await assertAuthOrRedirect()) return;
   requireLogin();
   renderLoggedInUser();
 
