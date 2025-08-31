@@ -14,11 +14,9 @@
     <div class="right-controls">
       <div class="user-info" id="user-info"></div>
       <nav class="main-nav">
-        <a href="index.html" data-i18n="main">Main</a>
+        <a href="login.html" data-i18n="login">로그인</a>
         <span class="divider">|</span>
-        <a href="entering.html" data-i18n="entering">입실</a>
-        <span class="divider">|</span>
-        <a href="viewseats.html" data-i18n="viewSeats">남은 좌석 확인</a>
+        <a href="signup.html" data-i18n="signup">회원가입</a>
       </nav>
     </div>
   </header>
@@ -110,6 +108,7 @@
     <!-- 하단 버튼 -->
     <div class="actions">
       <button class="action-btn" id="btnReserve" data-i18n="reserveBtn">예약</button>
+      <button class="action-btn" id="btnEnter" onclick="location.href='entering.html'" data-i18n="leaveBtn">입실</button>
       <button class="action-btn" id="btnLeave" onclick="location.href='checkout.html'" data-i18n="leaveBtn">퇴실</button>
       <button class="action-btn" id="btnExtend" data-i18n="extendBtn">연장</button>
     </div>
@@ -123,13 +122,13 @@
   <script>
    const translations = {
       en: {
-        main: "Main",
-        entering: "Enter",
-        viewSeats: "Check Available Seats",
+        login : "login",
+        signup : "signup",
         fixedSeat: "Fixed seat",
         seatSelect: "Seat Selection",
         timeSelect: "Select Time",
         reserveBtn: "Reserve",
+        enterBtn : "Enter",
         leaveBtn: "Leave",
         extendBtn: "Extend",
         used: "In Use",
@@ -141,13 +140,14 @@
         rule2: "If no one has reserved after you, you can extend for 3 more hours."
       },
       ko: {
-        main: "Main",
-        entering: "입실",
-        viewSeats: "남은 좌석 확인",
+        
+        login : "로그인",
+        signup : "회원가입",
         fixedSeat: "고정석",  
         seatSelect: "자리 선택",
         timeSelect: "예약 시간 선택",
         reserveBtn: "예약",
+        enterBtn : "입실",
         leaveBtn: "퇴실",
         extendBtn: "연장",
         used: "사용 중",
