@@ -385,23 +385,6 @@ html, body {
   .grid { grid-template-columns: 1fr; }
 }
 
-.auth-buttons {
-  margin-left: 40px;   /* 로고와 간격 */
-  display: flex;
-  gap: 10px;           /* 버튼 사이 간격 */
-}
 
-.auth-btn {
-  padding: 6px 12px;
-  background: #007bff;
-  color: #fff;
-  border-radius: 6px;
-  text-decoration: none;
-  font-size: 14px;
-}
-
-.auth-btn:hover {
-  background: #0056b3;
-}
 
 
