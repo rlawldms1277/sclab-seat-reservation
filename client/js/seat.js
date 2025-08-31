@@ -301,6 +301,9 @@ function renderTimeStatusForSeat(seatId) {
   const timeButtons = $$(".time-grid button");
   const reservations = state.reservations || [];
   const todayStr = localDateStr(new Date());
+  
+  const now = new Date();
+  const nowHour = now.getHours();
 
   // 초기화
   timeButtons.forEach(btn => {
@@ -314,6 +317,10 @@ function renderTimeStatusForSeat(seatId) {
     const btnHour = hourFromLabel(btn.textContent);
     if (btnHour === null) return;
 
+    // 지난 '시'는 비활성화 (같은 시는 허용)
+    if (btnHour < nowHour) {
+      btn.disabled = true;
+    }
     // 동일 좌석/방 + 해당 시간에 겹치는 모든 예약 수집
     const matches = reservations.filter(r =>
       r.startDateOnly === todayStr && 
@@ -410,9 +417,9 @@ function onSeatClick(e) {
 
 function onTimeClick(e) {
   const btn = e.currentTarget;
+  if (btn.disabled) { alert("이미 지난 시간대입니다."); return; } // 추가
   if (btn.classList.contains("reserved") || btn.classList.contains("done")) {
-    alert("이미 예약된 시간입니다.");
-    return;
+    alert("이미 예약된 시간입니다."); return;
   }
   $$(".time-grid button").forEach(b => b.classList.remove("picked"));
   btn.classList.add("picked");
@@ -433,6 +440,9 @@ function switchRoom(room) {
 
   refreshReservationsForRoom(room);
 }
+
+
+
 
 // ----------------- 예약 버튼 액션 -----------------
 function bindActions() {
@@ -457,10 +467,35 @@ reserveBtn.addEventListener("click", async () => {
   }
 
   // 1) 시작/종료(로컬 기준) 계산
-  const selHour = hourFromLabel(state.time);               // 예: "9:00" -> 9
-  const today   = new Date();
-  const startLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate(), selHour, 0, 0, 0);
-  let   endLocal   = new Date(startLocal.getTime() + 4 * 60 * 60 * 1000); // 기본 4시간
+// 1) 시작/종료(로컬 기준) 계산 (같은 시면 '지금'부터 시작, 이미 지난 시는 차단)
+const selHour = hourFromLabel(state.time); // 예: "18:00" -> 18
+const today   = new Date();
+const now     = new Date();
+
+let startLocal = new Date(
+  today.getFullYear(), today.getMonth(), today.getDate(),
+  selHour, 0, 0, 0
+);
+
+if (startLocal < now) {
+  if (now.getHours() === selHour) {
+    // 같은 시(hour): 18:30에 18시 슬롯 → 18:30부터 시작
+    startLocal = new Date(
+      today.getFullYear(), today.getMonth(), today.getDate(),
+      now.getHours(), now.getMinutes(), 0, 0
+    );
+  } else {
+    alert("이미 지난 시간대는 예약할 수 없습니다.");
+    return;
+  }
+}
+
+// 종료: '선택한 시각 + 4시간 - 1분' (예: 18:00 → 21:59)
+let endLocal = new Date(
+  today.getFullYear(), today.getMonth(), today.getDate(),
+  selHour + 4, 0, 0, 0
+);
+endLocal = new Date(endLocal.getTime() - 60 * 1000); // xx:59:00
 
   // 2) 같은 좌석에서 '막는 상태'의 이후 예약이 있으면 종료를 앞당김
   //    (CHECKED_IN 이거나, TTL 내의 PENDING 만 ‘막는 예약’으로 간주)
