@@ -114,6 +114,8 @@
       <button class="action-btn" id="btnLeave" onclick="location.href='checkout.html'" data-i18n="leaveBtn">퇴실</button>
       <button class="action-btn" id="btnExtend" data-i18n="extendBtn">연장</button>
     </div>
+
+    <div id="remainTime" class="remain-time"></div>
   </main>
 
     <!-- seat.html -->
@@ -174,22 +176,6 @@
 
       document.getElementById("btn-lang").textContent =
         currentLang === "ko" ? "English" : "한국어";
-    });
-  </script>
-  <!-- ✅ user.js + checkout.js 불러오기 -->
-  <script type="module">
-  import { renderLoggedInUser } from "./js/user.js";   
-  import "./js/checkout.js";
-  import { showRemainingTime } from "./js/timer.js";
-
-  document.addEventListener("DOMContentLoaded", () => {    
-      renderLoggedInUser(); // ✅ 로그인 표시만
-
-      // ✅ 내 예약 불러오기
-      const myReservation = JSON.parse(localStorage.getItem("myReservation") || "null");
-      if (myReservation && myReservation.endTime) {
-        showRemainingTime(myReservation, ".checkout-form");  
-      }
     });
   </script>
 </body>
