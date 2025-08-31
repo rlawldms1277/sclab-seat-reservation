@@ -123,10 +123,6 @@ function normalizeReservationRaw(raw) {
   let seat = raw.seat || raw.seatId;
   if (seat && typeof seat === "object") seat = seat.seatNumber || seat.id;
 
-    // ✅ 응답이 seatId/seat.id 또는 seatNumber/seat.seatNumber 로 올 경우 모두 수용
-  const seatId     = (raw.seatId ?? (raw.seat && raw.seat.id)) ?? null;
-  const seatNumber = (raw.seatNumber ?? (raw.seat && raw.seat.seatNumber)) ?? null;
-
   const start = raw.startTime;
   const end   = raw.endTime;
   const startDate = start ? new Date(start) : null;
@@ -143,9 +139,7 @@ function normalizeReservationRaw(raw) {
   return {
     id: raw.id || `${room}-${seat}-${start}`,
     room: String(room),
-    seat: seatId != null ? String(seatId) : (seatNumber != null ? String(seatNumber) : null),
-    seatId: seatId != null ? String(seatId) : null,
-    seatNumber: seatNumber != null ? String(seatNumber) : null,
+    seat: String(seat),
     startTime: startDate ? startDate.toISOString() : null,
     endTime: endDate ? endDate.toISOString() : null,
     startHour: startDate ? startDate.getHours() : null,
@@ -211,7 +205,6 @@ function mergeLocalPendingReservation() {
       id,
       room: String(m.room),
       seat: String(m.seat),
-      seatId: String(m.seat),
       startTime: start.toISOString(),
       endTime: end.toISOString(),
       startHour: start.getHours(),
@@ -252,7 +245,7 @@ function renderTimeStatusForSeat(seatId) {
     const matches = reservations.filter(r =>
       r.startDateOnly === todayStr && 
       String(r.room) === String(state.room) &&
-      String(r.seatId ?? r.seat) === String(seatId) &&
+      String(r.seat) === String(seatId) &&
       r.startHour != null && r.endHourExclusive != null &&
       btnHour >= r.startHour && btnHour < r.endHourExclusive
     );
@@ -309,7 +302,7 @@ function updateSeatUI(room) {
     const isUsedNow = reservations.some(r =>
       r.startDateOnly === todayStr && 
       String(r.room) === String(room) &&
-      String(r.seatId ?? r.seat) === String(seatId) &&
+      String(r.seat) === String(seatId) &&
       String(r.status).toUpperCase() === "CHECKED_IN" &&
       r.startTime && r.endTime &&
       new Date(r.startTime) <= now && now < new Date(r.endTime)
@@ -398,7 +391,7 @@ reserveBtn.addEventListener("click", async () => {
   const future = state.reservations.filter(r =>
     r.startDateOnly === localDateStr(today) &&
     String(r.room) === String(state.room) &&
-    String(r.seatId ?? r.seat) === String(state.seat) &&
+    String(r.seat) === String(state.seat) &&
     r.startHour != null &&
     r.startHour >= selHour &&
     (
