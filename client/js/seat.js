@@ -296,6 +296,62 @@ function findMyActiveReservationForSeat(seatId) {
 }
 
 
+// === 남은시간 표시용 유틸 ===
+function findMyCurrentCheckedInReservation() {
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const myId = user ? Number(user.id) : null;
+  if (!myId) return null;
+
+  const now = new Date();
+  const todayStr = localDateStr(now);
+
+  return (state.reservations || []).find(r =>
+    r.startDateOnly === todayStr &&
+    r.userId != null && Number(r.userId) === myId &&
+    String(r.status || "").toUpperCase() === "CHECKED_IN" &&
+    r.startTime && r.endTime &&
+    new Date(r.startTime) <= now && now < new Date(r.endTime)
+  ) || null;
+}
+
+function formatDuration(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`
+    : `${m}:${String(s).padStart(2,"0")}`;
+}
+
+let __remainTimer = null;
+function updateRemainTimeBox() {
+  const box = document.getElementById("remainTime");
+  if (!box) return;
+
+  const rec = findMyCurrentCheckedInReservation();
+  if (!rec) {
+    box.textContent = "";
+    const ext = document.getElementById("btnExtend");
+    if (ext) ext.textContent = "연장";
+    return;
+  }
+
+  const left = Math.max(0, new Date(rec.endTime).getTime() - Date.now());
+  const seatLabel = rec.seatNumber || rec.seat || "";
+  box.textContent = `남은 시간: ${formatDuration(left)} (좌석 ${seatLabel})`;
+
+  const ext = document.getElementById("btnExtend");
+  if (ext) ext.textContent = `연장 (${formatDuration(left)})`;
+}
+
+
+function startRemainTimer() {
+  if (__remainTimer) clearInterval(__remainTimer);
+  updateRemainTimeBox();
+  __remainTimer = setInterval(updateRemainTimeBox, 1000);
+}
+
 // ----------------- UI 렌더링 -----------------
 function renderTimeStatusForSeat(seatId) {
   const timeButtons = $$(".time-grid button");
@@ -356,6 +412,7 @@ async function refreshReservationsForRoom(room) {
   updateSeatUI(room);
   renderTimeStatusForSeat(state.seat);
   updateExtendButtonState();
+  startRemainTimer();
 }
 
 function updateSeatUI(room) {
@@ -644,6 +701,7 @@ function init() {
   $$(".seat").forEach(seat => seat.addEventListener("click", onSeatClick));
 
   bindActions();
+  startRemainTimer(); // 페이지 진입 시에도 시작
 
     // ✅ 탭을 다시 볼 때 즉시 서버에서 최신 예약을 가져와 반영
   document.addEventListener("visibilitychange", () => {
