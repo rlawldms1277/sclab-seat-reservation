@@ -402,6 +402,7 @@ function onSeatClick(e) {
   state.seat = seat.dataset.seatId;
   renderTimeStatusForSeat(state.seat);
   updateExtendButtonState();
+  
 }
 
 function onTimeClick(e) {
