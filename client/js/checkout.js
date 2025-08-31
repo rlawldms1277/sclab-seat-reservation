@@ -75,7 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.removeItem("lastSeat");
     localStorage.removeItem("lastSeatRoom");
 
-    window.location.href = "viewseats.html";
+    window.location.href = "index.html";
     } else {
       alert("퇴실 실패: " + (result.message || "알 수 없는 오류"));
     }
