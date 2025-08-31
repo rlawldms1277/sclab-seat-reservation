@@ -2,6 +2,7 @@
 const translations = {
   en: {
     title: "Sign Up - SCLab Seat Reservation System",
+    main :"main",
     login : "login",
     signup:"signup",
     signupTitle: "Sign Up",
@@ -27,6 +28,7 @@ const translations = {
   },
   ko: {
     title: "회원가입 - SCLab 자리 예약 시스템",
+    main :"main",
     login : "로그인",
     signup:"회원가입",
     signupTitle: "회원가입",
