@@ -386,12 +386,12 @@ html, body {
 }
 
 .auth-buttons {
-  margin-left: 20px;
-  display: inline-block;
+  margin-left: 40px;   /* 로고와 간격 */
+  display: flex;
+  gap: 10px;           /* 버튼 사이 간격 */
 }
 
 .auth-btn {
-  margin-right: 10px;
   padding: 6px 12px;
   background: #007bff;
   color: #fff;
@@ -403,4 +403,5 @@ html, body {
 .auth-btn:hover {
   background: #0056b3;
 }
+
 
