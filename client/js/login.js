@@ -59,17 +59,15 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
 // ✅ 언어 전환
 const translations = {
   en: {
-    main: "Main",
-    entering: "Enter",
-    viewSeats: "Check Available Seats",
+    login : "Login",
+    signup :"singup",
     loginTitle: "Login",
     loginNote: "When you log in, you will be redirected to the seat selection page.",
     loginBtn: "Login"
   },
   ko: {
-    main: "Main",
-    entering: "입실",
-    viewSeats: "남은 좌석 확인",
+    login : "로그인",
+    signup :"회원가입",
     loginTitle: "로그인",
     loginNote: "로그인 시 자리 선택 창으로 넘어갑니다.",
     loginBtn: "로그인"
