@@ -158,7 +158,7 @@ function hasMyReservationToday() {
   const todayStr = localDateStr(new Date());
 
   // ‘하루 1회’로 셀 상태들(정책에 맞춰 조정 가능)
-  const COUNT_STATUSES = new Set(["PENDING","CREATED","CHECKED_IN","FINISHED","EXPIRED"]);
+  const COUNT_STATUSES = new Set(["PENDING","CHECKED_IN","FINISHED","EXPIRED"]);
 
   return (state.reservations || []).some(r =>
     r.startDateOnly === todayStr &&
@@ -187,11 +187,10 @@ function getCreatedAt(rec) {
 
 function isActivePending(rec) {
   const s = String(rec.status || "").toUpperCase();
-  if (s !== "PENDING" && s !== "CREATED") return false;
+  if (s !== "PENDING") return false;            // ← CREATED 제거
   const ca = getCreatedAt(rec);
-  // createdAt이 없으면(백엔드 미포함) 안전하게 ‘차단’으로 간주
   if (!ca) return true;
-  return (Date.now() - ca.getTime()) < (PENDING_TTL_MIN * ONE_MIN);
+  return (Date.now() - ca.getTime()) < (PENDING_TTL_MIN * 60 * 1000);
 }
 
 function updateExtendButtonState() {
@@ -281,10 +280,7 @@ async function apiFetchReservations(room) {
       ? `${BASE_URL}/reservations?room=${room}`   // 숫자로 전달
       : `${BASE_URL}/reservations`;
 
-    const res = await fetch(url, {
-      method: "GET",
-      headers: authHeaders()
-    });
+    const res = await fetch(url, { method: "GET"});
 
     if (!res.ok) throw new Error("fetch reservations failed");
     const data = await res.json();
