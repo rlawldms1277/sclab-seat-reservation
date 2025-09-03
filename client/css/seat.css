@@ -237,3 +237,11 @@ html, body{ width:100%; height:100%; background:#fff; color:#000; font-family:va
 .seats-907{ width:300px; position:relative; margin:0 auto; }
 .seats-907 .seat{ width:120px; height:150px; }
 
+.btn.is-disabled { opacity:.5; cursor:not-allowed; }
+
+/* 901 제목만 아래로 내리기 */
+.map-panel > .room-box{
+  margin-top: 40px;     /* 원하는 만큼 숫자만 키우거나 줄이세요 */
+  margin-bottom: 16px;  /* (옵션) 아래 간격 */
+}
+

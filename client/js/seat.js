@@ -82,7 +82,7 @@ async function silentLoginByStudent(studentId, password){
       method: "POST",
       headers: { "Content-Type":"application/json" },
       body: JSON.stringify({
-        studentId: Number(studentId), // ← 반드시 숫자화!
+        studentId: String(studentId).trim(), // ← 반드시 숫자화!
         password
       })
     });
@@ -614,10 +614,10 @@ function updateSeatUI(room) {
   seats.forEach(seatEl => {
     // ✅ 고정석은 항상 회색 + 선택 불가
     if (seatEl.dataset.fixed === "true") {
-      seatEl.classList.remove("available");
-      seatEl.classList.add("used");
+      seatEl.classList.remove("available","used");
+      seatEl.classList.add("fixed");
       seatEl.style.pointerEvents = "none";
-      return; // 고정석이면 아래 로직은 건너뜀
+      return;
     }
 
     const seatId = seatEl.dataset.seatId; // ← 필요합니다 (예약 매칭에 사용)
