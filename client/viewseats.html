@@ -3,148 +3,153 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title data-i18n="title">좌석 현황 보기 - SCLab</title>
-  <link rel="stylesheet" href="css/viewseats.css" />
+  <title>관리자 페이지 - SCLab</title>
+  <!-- 기존 좌석 스타일을 재사용 -->
+  <link rel="stylesheet" href="css/seat.css" />
+  <style>
+    /* 관리자 우측 패널만 살짝 다르게 */
+    .admin-panel .hello .line1, .admin-panel .hello .line2 { font-size: 28px; }
+    .admin-actions { display:flex; flex-direction:column; gap:12px; margin-top: 40px; }
+    .admin-note { font-size: 14px; color:#666; }
+    .table { width:100%; border-collapse: collapse; font-size:14px; }
+    .table th, .table td { border:1px solid #e5e7eb; padding:6px 8px; text-align:left; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#312e81; font-size:12px; }
+  </style>
 </head>
 <body>
-  <!-- 헤더 -->
-  <header class="navbar">
-    <div class="logo">SClab</div>
+  <!-- 좌측 상단: Language (옵션) -->
+  <div class="lang">
+    <div class="lang-trigger">
+      Language <span class="arrow">▼</span>
+    </div>
+    <div class="lang-menu">
+      <div class="lang-current">현재 언어 : <span>한국어</span></div>
+      <button data-lang="ko">Korean</button>
+      <button data-lang="en">English</button>
+    </div>
+  </div>
 
-    <!-- 우측 컨트롤: 위 user-info, 아래 nav -->
-    <div class="right-controls">
-      <div class="user-info" id="user-info">
-        <!-- 로그인 시 JS에서 여기에 이름과 로그아웃 버튼 생성 -->
+  <!-- 우측 상단: 날짜/시간 -->
+  <div class="clock-box">
+    <span id="nowDate">0000.00.00</span>
+    <span id="nowTime">PM 00:00</span>
+  </div>
+
+  <!-- 메인 레이아웃: 좌석 현황만 (예약/퇴실/연장 버튼은 제거) -->
+  <main class="main-layout">
+    <!-- 907 -->
+    <section class="status-panel">
+      <div class="status-card">
+        <div class="room-box" style="margin-bottom:8px;">907</div>
+        <div id="room-907" class="seats-canvas seats-907">
+          <div class="seat fixed"      data-fixed="true" style="left:0px;   top:70px;">고정석</div>
+          <div class="seat available"  data-seat-id="15"  style="left:160px; top:70px;">15</div>
+          <div class="seat available bottom" data-seat-id="16" style="left:0px;">16</div>
+          <div class="seat available bottom" data-seat-id="14" data-seat-label="13" style="left:160px;">13</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 901 -->
+    <section class="map-panel">
+      <div class="room-box">901</div>
+      <div id="room-901" class="seats-canvas">
+        <div class="seat available" data-seat-id="1"  style="left:130px; top:70px;">1</div>
+        <div class="seat available" data-seat-id="2"  style="left:270px; top:70px;">2</div>
+        <div class="seat available" data-seat-id="3"  style="left:130px; top:237px;">3</div>
+        <div class="seat available" data-seat-id="4"  style="left:270px; top:237px;">4</div>
+        <div class="seat available" data-seat-id="5"  style="left:550px; top:70px;">5</div>
+        <div class="seat fixed"     data-fixed="true"      style="left:690px; top:70px;">고정석</div>
+        <div class="seat available" data-seat-id="8"  style="left:690px; top:237px;">8</div>
+        <div class="seat available" data-seat-id="7"  style="left:550px; top:237px;">7</div>
+        <div class="seat available" data-seat-id="9"  style="left:30px;  top:510px;">9</div>
+        <div class="seat available" data-seat-id="10" style="left:200px; top:510px;">10</div>
+        <div class="seat available" data-seat-id="11" style="left:370px; top:510px;">11</div>
+        <div class="seat fixed"     data-fixed="true" data-seat-id="12" style="left:540px; top:510px;">고정석</div>
+        <div class="seat available" data-seat-id="13" style="left:710px; top:510px;">13</div>
+      </div>
+    </section>
+
+    <!-- 우측: 관리자 패널 -->
+    <aside class="side-panel admin-panel">
+      <div class="hello">
+        <div class="line1"><span class="brand-text">SCLab</span> 관리자</div>
+        <div class="line2">좌석 현황 & 사용자 관리</div>
       </div>
 
-      <nav class="main-nav">
-        <a href="index.html" data-i18n="main">Main</a>
-        <span class="divider">|</span>
-        <a href="entering.html" data-i18n="entering">입실</a>
-        <span class="divider">|</span>
-        <a href="viewseats.html" data-i18n="viewSeats">남은 좌석 확인</a>
-      </nav>
-    </div>
-  </header>
-
-  <main class="seat-page">
-    <h2 class="page-title" data-i18n="pageTitle">남은 좌석 확인</h2>
-
-    <!-- ✅ 안내 문구 -->
-    <p class="notice" data-i18n="notice">
-      이 페이지에서는 자리 확인 및 잔여 시간만 확인 가능합니다.
-    </p>
-
-    <div class="rooms-grid">
-      <!-- 901호 -->
-      <section class="room-wrap">
-        <h3 class="room-title">901 <span data-i18n="room">호</span></h3>
-        <div class="room-canvas">
-          <div class="seat available" style="left:220px; top:40px;">1</div>
-          <div class="seat available" style="left:300px; top:40px;">2</div>
-          <div class="seat available" style="left:220px; top:120px;">3</div>
-          <div class="seat available" style="left:300px; top:120px;">4</div>
-          <div class="seat available" style="left:520px; top:40px;">5</div>
-          <div class="seat available" style="left:600px; top:40px;">6</div>
-          <div class="seat available" style="left:520px; top:120px;">7</div>
-          <div class="seat available" style="left:600px; top:120px;">8</div>
-          <div class="seat available" style="left:260px; top:300px;">9</div>
-          <div class="seat available" style="left:340px; top:300px;">10</div>
-          <div class="seat available" style="left:420px; top:300px;">11</div>
-          <div class="seat available" style="left:500px; top:300px;">12</div>
-          <div class="seat available" style="left:580px; top:300px;">13</div>
+      <div class="card">
+        <div class="card-title">관리자 인증 상태</div>
+        <div class="muted">
+          <span id="adminState" class="badge">미인증</span>
         </div>
-      </section>
+      </div>
 
-      <!-- 907호 -->
-      <section class="room-wrap">
-        <h3 class="room-title">907 <span data-i18n="room">호</span></h3>
-        <div class="room-canvas">
-          <div class="seat used" style="left:0px; top:40px;" data-i18n="fixedSeat">고정석</div>
-          <div class="seat used" style="left:0px; top:180px;" data-i18n="fixedSeat">고정석</div>
-          <div class="seat used" style="left:620px; top:40px;" data-i18n="fixedSeat">고정석</div>
-          <div class="seat available" style="left:620px; top:180px;">14</div>
-        </div>
-      </section>
-    </div>
+      <div class="admin-actions">
+        <button id="btnAdminLogin" class="btn">관리자 인증</button>
+        <button id="btnUserManage" class="btn">사용자 등록/삭제</button>
+        <a class="btn" href="index.html" style="text-align:center; display:block; line-height:55px; text-decoration:none;">← 메인 페이지로</a>
+      </div>
 
-    <!-- 범례 -->
-    <div class="legend">
-      <span class="dot used"></span> <span data-i18n="used">사용 중</span>
-      <span class="dot free"></span> <span data-i18n="free">사용 가능</span>
-    </div>
-
-    <!-- 언어 전환 버튼 -->
-    <div style="text-align:center; margin-top:20px;">
-      <button id="btn-lang">English</button>
-    </div>
+      <div class="admin-link" style="margin-top:auto; text-align:right;">
+        <span class="admin-note">※ 사용자 추가/삭제는 관리자 비밀번호 확인 후 가능합니다.</span>
+      </div>
+    </aside>
   </main>
 
-  <!-- 번역 스크립트 -->
-  <script>
-    const translations = {
-      en: {
-        title: "View Seat Availability - SCLab",
-        main: "Main",
-        entering: "Enter",
-        viewSeats: "Check Available Seats",
-        pageTitle: "Available Seats",
-        notice: "On this page, you can only check your seat and remaining time.",
-        room: "Room",
-        fixedSeat: "Fixed Seat",
-        used: "In Use",
-        free: "Available"
-      },
-      ko: {
-        title: "좌석 현황 보기 - SCLab",
-        main: "Main",
-        entering: "입실",
-        viewSeats: "남은 좌석 확인",
-        pageTitle: "남은 좌석 확인",
-        notice: "이 페이지에서는 자리 확인 및 잔여 시간만 확인 가능합니다.",
-        room: "호",
-        fixedSeat: "고정석",
-        used: "사용 중",
-        free: "사용 가능"
-      }
-    };
+  <!-- 관리자 인증 모달 -->
+  <div id="adminAuthModal" class="reserve-modal">
+    <div class="rm-dialog">
+      <div class="rm-head">
+        <h3>관리자 인증</h3>
+        <button class="rm-close" aria-label="닫기">✕</button>
+      </div>
+      <div class="rm-form">
+        <input id="adminPw" type="password" placeholder="관리자 비밀번호" autocomplete="off" />
+      </div>
+      <div class="rm-actions">
+        <button class="rm-primary" id="adminLoginGo">인증하기</button>
+      </div>
+    </div>
+  </div>
 
-    let currentLang = "ko";
+  <!-- 사용자 관리 모달 -->
+  <div id="userManageModal" class="reserve-modal">
+    <div class="rm-dialog" style="max-width:760px;">
+      <div class="rm-head">
+        <h3>사용자 등록/삭제</h3>
+        <button class="rm-close" aria-label="닫기">✕</button>
+      </div>
 
-    document.getElementById("btn-lang").addEventListener("click", () => {
-      currentLang = currentLang === "ko" ? "en" : "ko";
+      <div class="rm-sub">신규 사용자 추가</div>
+      <div class="rm-form">
+        <input id="um-student" type="text" placeholder="학번" autocomplete="off" />
+        <input id="um-name"    type="text" placeholder="이름" autocomplete="off" />
+        <input id="um-pw"      type="password" placeholder="비밀번호" autocomplete="off" />
+        <button class="rm-primary" id="um-add">추가하기</button>
+      </div>
 
-      // data-i18n 번역 적용
-      document.querySelectorAll("[data-i18n]").forEach(el => {
-        const key = el.getAttribute("data-i18n");
-        el.textContent = translations[currentLang][key];
-      });
+      <div class="rm-sub" style="margin-top:12px;">사용자 삭제</div>
+      <div class="rm-form">
+        <input id="um-del-student" type="text" placeholder="삭제할 학번" autocomplete="off" />
+        <button class="rm-primary" id="um-del">삭제하기</button>
+      </div>
 
-      // 버튼 텍스트 전환
-      document.getElementById("btn-lang").textContent =
-        currentLang === "ko" ? "English" : "한국어";
+      <div class="rm-sub" style="margin-top:12px; display:flex; justify-content:space-between; align-items:center;">
+        <span>현재 사용자 목록</span>
+        <button class="rm-primary" id="um-refresh" style="height:36px; min-width:auto; padding:0 12px;">새로고침</button>
+      </div>
+      <div style="max-height:260px; overflow:auto; margin-top:8px;">
+        <table class="table" id="um-table">
+          <thead>
+            <tr><th>ID</th><th>학번</th><th>이름</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
 
-      // <title> 번역
-      document.title = translations[currentLang]["title"];
-    });
-  </script>
+    </div>
+  </div>
 
-  <!-- ✅ user.js + checkout.js 불러오기 -->
-  <script type="module">
-    import { renderLoggedInUser, requireLogin } from "./js/user.js";
-    import "./js/checkout.js";
-    import { showRemainingTime } from "./js/timer.js";
-
-    document.addEventListener("DOMContentLoaded", () => {     
-      renderLoggedInUser(); // ✅ 로그인 표시 (header 영역)
-
-      // ✅ 내 예약 불러오기
-      const myReservation = JSON.parse(localStorage.getItem("myReservation") || "null");
-      if (myReservation && myReservation.endTime) {
-        // checkout 페이지의 퇴실 폼 위에만 표시
-        showRemainingTime(myReservation, ".checkout-form");  
-      }
-    });
-  </script>
+  <script type="module" src="./js/admin.js"></script>
 </body>
 </html>

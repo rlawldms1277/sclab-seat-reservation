@@ -82,7 +82,8 @@ async function silentLoginByStudent(studentId, password){
       method: "POST",
       headers: { "Content-Type":"application/json" },
       body: JSON.stringify({
-        studentId: String(studentId).trim(), // ← 반드시 숫자화!
+        username: String(studentId).trim(),   // 학번을 username/userId로 같이 보냄
+        userId:   String(studentId).trim(),
         password
       })
     });
@@ -97,14 +98,11 @@ async function silentLoginByStudent(studentId, password){
 
     // 토큰/유저 저장(키 이름이 다를 수도 있어 대비)
     const token = data.token || data.accessToken || data.jwt;
-    const user  = data.user  || data.profile || data.data || null;
-
+    const uid   = data.userId || (data.user && data.user.id);
+    // 프런트 로직에서 id가 필요하므로 꼭 채워넣기
+    const user  = data.user || { id: uid, studentId: String(studentId).trim() };
     if (token) localStorage.setItem("token", token);
     if (user)  localStorage.setItem("user", JSON.stringify(user));
-    else {
-      // 혹시 user 안 내려오면 입력값으로 최소한 저장
-      localStorage.setItem("user", JSON.stringify({ studentId: String(studentId) }));
-    }
 
     return { ok:true, user: user || null };
   }catch(e){
@@ -243,7 +241,7 @@ function isNowBetween(stISO, edISO){
 async function findActiveReservationIdByStudent(studentId){
   try {
     // 모든 방의 예약을 받아와서(백엔드가 전체 반환 지원)
-    const res  = await fetch(`${BASE_URL}/reservations`, { headers: authHeaders() });
+    const res  = await fetch(`${BASE_URL}/reservations`);
     const data = await res.json().catch(()=>({ reservations: [] }));
     const list = (data.reservations || data || []).map(normalizeReservationRaw);
 
