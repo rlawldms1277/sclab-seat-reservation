@@ -1,6 +1,5 @@
 // js/seat.js
 
-
 import { renderLoggedInUser, requireLogin } from "./user.js";
 
 
@@ -10,7 +9,94 @@ const BASE_URL = "https://lab-reserve-backend.onrender.com";
 
 
 // ----------------- 상태 관리 -----------------
-const state = { room: "901", seat: null, time: null, user: null, reservations: [] };
+const state = { room: "901", seat: null, time: null, user: null, reservations: [], allowSeatPick: false };
+
+// 전역 플래그 동기화(모달 스크립트에서 사용)
+function setAllowSeatPick(v) {
+  state.allowSeatPick = v;
+  window.__allowSeatPick = v;
+}
+
+// 시간 포맷/범위 표시
+function two(n){ return String(n).padStart(2,"0"); }
+function fmtHM(d){ return `${two(d.getHours())}:${two(d.getMinutes())}`; }
+function displayRange(startISO, endISO){
+  const st = new Date(startISO);
+  // 화면 표시는 xx:59로 보이도록 1분 뺀 값을 사용
+  const ed = new Date(new Date(endISO).getTime() - 60*1000);
+  return `${fmtHM(st)}~${fmtHM(ed)}`;
+}
+
+// 학번(또는 사용자 식별값) 추출
+function getStudentLabel(rec){
+  const raw = rec.raw || {};
+  const u = raw.user || raw.User || {};
+  return u.studentId || raw.studentId || u.username || (rec.userId != null ? String(rec.userId) : "-");
+}
+
+// 좌석의 '지금 진행 중' 예약(우선) 또는 '다음 예정' 예약 찾기
+function getActiveOrNextReservationForSeat(seatId){
+  const now = new Date();
+  const todayStr = localDateStr(now);
+
+  const list = (state.reservations || []).filter(r =>
+    r.startDateOnly === todayStr &&
+    String(r.room) === String(state.room) &&
+    String(r.seatId ?? r.seat) === String(seatId) &&
+    r.startTime && r.endTime
+  );
+
+  // 현재 진행 중 먼저
+  const active = list.find(r => new Date(r.startTime) <= now && now < new Date(r.endTime));
+  if (active) return active;
+
+  // 없으면 가장 가까운 다음 예약
+  return list.sort((a,b)=> new Date(a.startTime) - new Date(b.startTime))[0] || null;
+}
+
+// 우측 카드에 선택 좌석 정보 렌더
+function renderSelectedSeatInfo(seatId){
+  const infoEl  = $("#currentResv");
+  const labelEl = $("#selSeatLabel");
+  if (!infoEl) return;
+
+    // 좌석 라벨(캔버스에서 가져오기)
+  const seatEl =
+    $(`#room-${state.room} .seat[data-seat-id="${seatId}"]`) ||
+    document.querySelector(`.seat[data-seat-id="${seatId}"]`);
+  const seatLabel = seatEl ? (seatEl.dataset.seatLabel || seatEl.textContent.trim() || seatId) : seatId;
+
+  if (labelEl) labelEl.textContent = `선택 좌석 ${seatLabel}`;
+
+  const rec = getActiveOrNextReservationForSeat(seatId);
+  if (!rec) { infoEl.textContent = "현재 예약 없음"; return; }
+
+  const stu = getStudentLabel(rec);
+  const range = displayRange(rec.startTime, rec.endTime);
+  infoEl.textContent = `학번 ${stu} · ${range}`;
+}
+
+// ==== 조용한 로그인(토큰 발급 + user 저장) ====
+async function silentLoginByStudent(studentId, password){
+  try{
+    const res = await fetch(`${BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({ studentId, password }) // ← 백엔드 스펙에 맞게 필드명 확인
+    });
+    const data = await res.json().catch(()=>null);
+    if (!res.ok) return { ok:false, message: (data?.error || data?.message || "로그인 실패") };
+
+    if (data.token) localStorage.setItem("token", data.token);
+    if (data.user)  localStorage.setItem("user", JSON.stringify(data.user));
+    return { ok:true, user: data.user || null };
+  }catch(e){
+    console.error(e);
+    return { ok:false, message: "네트워크 오류" };
+  }
+}
+
+
 
 // ----------------- 유틸 함수 -----------------
 const $  = (sel, root = document) => root.querySelector(sel);
@@ -46,6 +132,26 @@ function localDateStr(d) {
   return `${y}-${m}-${da}`;
 }
 
+function hasMyReservationToday() {
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const myId = user ? Number(user.id) : null;
+  if (!myId) return false;
+
+  const todayStr = localDateStr(new Date());
+
+  // ‘하루 1회’로 셀 상태들(정책에 맞춰 조정 가능)
+  const COUNT_STATUSES = new Set(["PENDING","CREATED","CHECKED_IN","FINISHED","EXPIRED"]);
+
+  return (state.reservations || []).some(r =>
+    r.startDateOnly === todayStr &&
+    r.userId != null && Number(r.userId) === myId &&
+    COUNT_STATUSES.has(String(r.status || "").toUpperCase())
+  );
+}
+
+// seat.js 적당한 곳
+function pubHM(dateLike){ const d=new Date(dateLike); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+function minus1min(dateLike){ return new Date(new Date(dateLike).getTime() - 60*1000); }
 
 // ADD: PENDING 20분 TTL
 const PENDING_TTL_MIN = 20;
@@ -73,18 +179,81 @@ function isActivePending(rec) {
 function updateExtendButtonState() {
   const extendBtn = $("#btnExtend");
   if (!extendBtn) return;
-  if (!state.seat) { extendBtn.disabled = true; extendBtn.title = "좌석을 먼저 선택하세요."; return; }
 
-  const base = findMyActiveReservationForSeat(state.seat);
-  if (!base) { extendBtn.disabled = true; extendBtn.title = "체크인된 내 예약이 없습니다."; return; }
+  let title = "";
+  let isBlocked = false;
 
-  const now = new Date(), end = new Date(base.endTime);
-  const earliest = new Date(end.getTime() - EXTEND_WINDOW_MIN * 60 * 1000);
-  const ok = (now >= earliest && now <= end);
-  extendBtn.disabled = !ok;
-  extendBtn.title = ok ? "" : `연장은 종료 ${EXTEND_WINDOW_MIN}분 전부터 종료 시까지 가능합니다.`;
+  if (!state.seat) {
+    title = "좌석을 먼저 선택하세요.";
+    isBlocked = true;
+  } else {
+    const base = findMyActiveReservationForSeat(state.seat);
+    if (!base) {
+      title = "체크인된 내 예약이 없습니다.";
+      isBlocked = true;
+    } else {
+      const now = new Date(), end = new Date(base.endTime);
+      const earliest = new Date(end.getTime() - EXTEND_WINDOW_MIN * 60 * 1000);
+      if (!(now >= earliest && now <= end)) {
+        title = `연장은 종료 ${EXTEND_WINDOW_MIN}분 전부터 종료 시까지 가능합니다.`;
+        isBlocked = true;
+      }
+    }
+  }
+
+  // 클릭은 가능하게 두고, 시각적으로만 비활성처럼 보이게 처리
+  extendBtn.title = title;
+  extendBtn.classList.toggle("is-disabled", isBlocked);
+  extendBtn.setAttribute("aria-disabled", isBlocked ? "true" : "false");
+
+  // ❌ 금지: 클릭 막히니 절대 쓰지 마세요
+  // extendBtn.disabled = true/false;
 }
 
+function getStudentIdFromRec(rec){
+  const raw = rec.raw || {};
+  const u = raw.user || raw.User || {};
+  return u.studentId || raw.studentId || null;
+}
+function isNowBetween(stISO, edISO){
+  const now = Date.now();
+  const st = new Date(stISO).getTime();
+  const ed = new Date(edISO).getTime();
+  return st <= now && now < ed;
+}
+
+// 학번으로 '오늘 진행 중' 예약 찾기 → reservationId 반환
+async function findActiveReservationIdByStudent(studentId){
+  try {
+    // 모든 방의 예약을 받아와서(백엔드가 전체 반환 지원)
+    const res  = await fetch(`${BASE_URL}/reservations`, { headers: authHeaders() });
+    const data = await res.json().catch(()=>({ reservations: [] }));
+    const list = (data.reservations || data || []).map(normalizeReservationRaw);
+
+    const today = localDateStr(new Date());
+
+    // 1) 지금 시간대에 진행 중인 예약 우선
+    const active = list.find(r =>
+      r.startDateOnly === today &&
+      getStudentIdFromRec(r) == studentId &&
+      r.startTime && r.endTime &&
+      isNowBetween(r.startTime, r.endTime)
+    );
+    if (active) return active.id;
+
+    // 2) 없다면, 오늘 해당 학번 예약 중 가장 최근 것
+    const todays = list
+      .filter(r => r.startDateOnly === today && getStudentIdFromRec(r) == studentId);
+    if (todays.length){
+      todays.sort((a,b)=> new Date(b.startTime) - new Date(a.startTime));
+      return todays[0].id;
+    }
+    return null;
+  } catch(e){
+    console.error(e);
+    return null;
+  }
+}
 
 
 // ----------------- 서버 호출 -----------------
@@ -413,6 +582,9 @@ async function refreshReservationsForRoom(room) {
   renderTimeStatusForSeat(state.seat);
   updateExtendButtonState();
   startRemainTimer();
+
+  // ✅ 선택 좌석이 있으면 우측카드 재렌더
+  if (state.seat) renderSelectedSeatInfo(state.seat);
 }
 
 function updateSeatUI(room) {
@@ -454,11 +626,27 @@ function updateSeatUI(room) {
 }
 
 
-
 // ----------------- 좌석/시간 선택 -----------------
-function onSeatClick(e) {
+async function onSeatClick(e) {
   const seat = e.currentTarget;
-  if (seat.dataset.fixed === "true") {  // ✅ 고정석 클릭 방지
+
+  // ✅ [예약하기]를 누르기 전에는 좌석 선택/모달 금지
+  if (!state.allowSeatPick) {
+    alert("예약하려면 우측의 [예약하기] 버튼을 먼저 눌러주세요.");
+    return;
+  }
+
+  // 🔽 클릭한 좌석이 속한 방으로 state.room 자동 변경
+  const roomEl = seat.closest('.seats-canvas');
+  if (roomEl && roomEl.id.startsWith('room-')) {
+    const clickedRoom = roomEl.id.replace('room-', '');
+    if (state.room !== clickedRoom) {
+      state.room = clickedRoom;
+      await refreshReservationsForRoom(state.room);
+    }
+  }
+
+  if (seat.dataset.fixed === "true") {
     alert("고정석은 선택할 수 없습니다.");
     return;
   }
@@ -467,35 +655,56 @@ function onSeatClick(e) {
   seat.classList.add("selected");
 
   state.seat = seat.dataset.seatId;
+
   renderTimeStatusForSeat(state.seat);
   updateExtendButtonState();
-  
+  renderSelectedSeatInfo(state.seat);
 }
 
 function onTimeClick(e) {
   const btn = e.currentTarget;
-  if (btn.disabled) { alert("이미 지난 시간대입니다."); return; } // 추가
+  if (btn.disabled) { alert("이미 지난 시간대입니다."); return; }
   if (btn.classList.contains("reserved") || btn.classList.contains("done")) {
-    alert("이미 예약된 시간입니다."); return;
+    alert("이미 예약된 시간입니다.");
+    return;
   }
   $$(".time-grid button").forEach(b => b.classList.remove("picked"));
   btn.classList.add("picked");
   state.time = btn.textContent.trim();
 }
 
-function switchRoom(room) {
-  const btn = $(`.room-btn[data-room="${room}"]`);
-  $$(".room-btn").forEach(b => b.classList.remove("active"));
-  btn && btn.classList.add("active");
+//--------------퇴실---------------------------------
+async function apiCheckout(reservationId, password) {
+  const idNum = Number(reservationId);
+  if (Number.isNaN(idNum)) return { ok:false, message:"예약 ID가 올바르지 않습니다." };
 
-  $$(".room").forEach(r => r.classList.remove("active"));
-  $(`#room-${room}`).classList.add("active");
+  try {
+    const res = await fetch(`${BASE_URL}/checkout`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ reservationId: idNum, password })
+    });
+    const data = await res.json().catch(()=>null);
+    if (!res.ok) return { ok:false, message: (data && (data.error || data.message)) || "퇴실 실패" };
+    return { ok:true, data };
+  } catch (e) {
+    console.error(e);
+    return { ok:false, message:"네트워크 오류" };
+  }
+}
 
-  state.room = room;
-  state.seat = null;
-  $$(".seat.selected").forEach(s => s.classList.remove("selected"));
 
-  refreshReservationsForRoom(room);
+// 표시용 시간 범위(xx:59 보정)
+function __fmt2(n){ return String(n).padStart(2,"0"); }
+function __rangeText(stISO, edISO){
+  const st = new Date(stISO);
+  const ed = new Date(new Date(edISO).getTime() - 60*1000);
+  return `${__fmt2(st.getHours())}:${__fmt2(st.getMinutes())}~${__fmt2(ed.getHours())}:${__fmt2(ed.getMinutes())}`;
+}
+function __getStudent(rec){
+  const raw = rec.raw || {};
+  const u = raw.user || raw.User || {};
+  return u.studentId || raw.studentId || u.username || (rec.userId != null ? String(rec.userId) : "-");
 }
 
 
@@ -507,197 +716,256 @@ function bindActions() {
   const leaveBtn   = $("#btnLeave");
   const extendBtn  = $("#btnExtend");
 
-reserveBtn.addEventListener("click", async () => {
-  if (!state.seat || !state.time) {
-    alert("좌석과 시간을 모두 선택해주세요.");
-    return;
-  }
+  // [예약하기]: 1) 선택모드 ON → (첫 클릭) 좌석/시간 안내만
+  //            2) 좌석+시간 고른 상태(두 번째 클릭)면 로그인→예약 실행
+  reserveBtn.addEventListener("click", async () => {
+    setAllowSeatPick(true); // 좌석 선택 허용
 
-  await refreshReservationsForRoom(state.room);
+    // 좌석/시간 아직이면 안내만 하고 끝 (로그인 시도 X)
+    if (!state.seat || !state.time) {
+      const info = $("#currentResv");
+      if (info) info.textContent = "좌석을 클릭하고 시간대를 선택하세요.";
+      return;
+    }
 
-  // 로그인 사용자 확인
-  const user = JSON.parse(localStorage.getItem("user") || "null");
-  const userId = user ? Number(user.id) : null;
-  if (!userId) {
-    alert("로그인 정보가 없습니다. 다시 로그인해주세요.");
-    return;
-  }
+    // 여기 들어왔다는 건 좌석과 시간까지 선택 끝난 상태(두 번째 클릭)
+    // 1) 토큰 없으면 모달의 학번/비번으로 '조용히 로그인'
+    if (!localStorage.getItem("token")) {
+      const sid = (document.getElementById("rm-student")?.value || "").trim();
+      const pw  = (document.getElementById("rm-pw")?.value || "").trim();
+      if (!sid || !pw) { alert("학번과 비밀번호를 입력해주세요."); return; }
 
-  // 1) 시작/종료(로컬 기준) 계산
-// 1) 시작/종료(로컬 기준) 계산 (같은 시면 '지금'부터 시작, 이미 지난 시는 차단)
-const selHour = hourFromLabel(state.time); // 예: "18:00" -> 18
-const today   = new Date();
-const now     = new Date();
+      const login = await silentLoginByStudent(sid, pw);
+      if (!login.ok) { alert(login.message || "로그인 실패"); return; }
+    }
 
-let startLocal = new Date(
-  today.getFullYear(), today.getMonth(), today.getDate(),
-  selHour, 0, 0, 0
-);
+    // 2) 서버 최신 예약 불러오고(중복/겹침 체크)
+    await refreshReservationsForRoom(state.room);
+    if (hasMyReservationToday()) { alert("이미 오늘 1회 예약을 사용했습니다."); return; }
 
-if (startLocal < now) {
-  if (now.getHours() === selHour) {
-    // 같은 시(hour): 18:30에 18시 슬롯 → 18:30부터 시작
-    startLocal = new Date(
-      today.getFullYear(), today.getMonth(), today.getDate(),
-      now.getHours(), now.getMinutes(), 0, 0
+    const selHour = hourFromLabel(state.time);
+    const today   = new Date();
+    const now     = new Date();
+
+    let startLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate(), selHour, 0, 0, 0);
+    if (startLocal < now) {
+      if (now.getHours() === selHour) {
+        startLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate(), now.getHours(), now.getMinutes(), 0, 0);
+      } else { alert("이미 지난 시간대는 예약할 수 없습니다."); return; }
+    }
+
+    let endLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate(), selHour + 4, 0, 0, 0);
+    endLocal = new Date(endLocal.getTime() - 60 * 1000); // xx:59
+
+    // 뒤 예약과 겹치면 끝 시간 당겨주기
+    const future = state.reservations.filter(r =>
+      r.startDateOnly === localDateStr(today) &&
+      String(r.room) === String(state.room) &&
+      String(r.seatId ?? r.seat) === String(state.seat) &&
+      r.startHour != null && r.startHour >= selHour &&
+      (String(r.status || "").toUpperCase() === "CHECKED_IN" || isActivePending(r))
     );
-  } else {
-    alert("이미 지난 시간대는 예약할 수 없습니다.");
-    return;
-  }
-}
+    if (future.length) {
+      const nextStartHour = Math.min(...future.map(r => r.startHour));
+      const nextStartDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), nextStartHour, 0, 0, 0);
+      if (nextStartDate < endLocal) endLocal = new Date(nextStartDate.getTime());
+    }
 
-// 종료: '선택한 시각 + 4시간 - 1분' (예: 18:00 → 21:59)
-let endLocal = new Date(
-  today.getFullYear(), today.getMonth(), today.getDate(),
-  selHour + 4, 0, 0, 0
-);
-endLocal = new Date(endLocal.getTime() - 60 * 1000); // xx:59:00
+    // 3) 예약 생성
+    const apiResult = await apiCreateReservation({
+      seat: state.seat,
+      startTimeISO: startLocal.toISOString(),
+      endTimeISO:   endLocal.toISOString()
+    });
+    if (!apiResult.ok) { alert("예약 실패: " + (apiResult.reason || "서버 오류")); await refreshReservationsForRoom(state.room); return; }
 
-  // 2) 같은 좌석에서 '막는 상태'의 이후 예약이 있으면 종료를 앞당김
-  //    (CHECKED_IN 이거나, TTL 내의 PENDING 만 ‘막는 예약’으로 간주)
-  const future = state.reservations.filter(r =>
-    r.startDateOnly === localDateStr(today) &&
-    String(r.room) === String(state.room) &&
-    String(r.seatId ?? r.seat) === String(state.seat) &&
-    r.startHour != null &&
-    r.startHour >= selHour &&
-    (
-      String(r.status || "").toUpperCase() === "CHECKED_IN" ||
-      isActivePending(r) // ← TTL 살아있는 PENDING만 차단
-    )
-  );
+    // 4) 즉시 UI에 반영(오른쪽 카드)
+    await refreshReservationsForRoom(state.room);
+    renderSelectedSeatInfo(state.seat);  // ← ‘학번 · 9:00~12:59’ 갱신
 
-if (future.length) {
-  const nextStartHour = Math.min(...future.map(r => r.startHour));
-  const nextStartDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), nextStartHour, 0, 0, 0);
-  if (nextStartDate < endLocal) {
-    endLocal = new Date(nextStartDate.getTime());
-  }
-}
+    // 5) 안내
+    const rec = normalizeReservationRaw(apiResult.rec);
+    const pin = apiResult.pin || rec.pin || "UNKNOWN";
+    alert(`예약 완료! 20분 내 입실해주세요.\n좌석: ${rec.seat}\n시간: ${state.time}\n입실 PIN: ${pin}`);
 
-  // 3) 서버 호출
-  const apiResult = await apiCreateReservation({
-    seat: state.seat,
-    startTimeISO: startLocal.toISOString(),
-    endTimeISO:   endLocal.toISOString()
+    // 선택 모드 해제(원하시면 유지 가능)
+    setAllowSeatPick(false);
   });
 
-  if (!apiResult.ok) {
-    alert("예약 실패: " + (apiResult.reason || "서버 오류"));
-    refreshReservationsForRoom(state.room);
-    return;
-  }
-
-  // 4) 서버 응답 정규화
-  const rec = normalizeReservationRaw(apiResult.rec);
-  if (rec.id) localStorage.setItem("lastReservationId", rec.id);
-
-  // 5) ‘내 예약(PENDING)’을 로컬에 저장 (새로고침해도 초록 유지)
-  //    => 시간 계산은 위에서 우리가 보낸 startLocal/endLocal 기준으로 저장 (타임존 흔들림 방지)
-  let endHourExclusive = endLocal.getHours();
-  if (endLocal.getMinutes() > 0 || endLocal.getSeconds() > 0 || endLocal.getMilliseconds() > 0) {
-    endHourExclusive += 1;
-  }
-
-  const pendingLocal = {
-    id:   rec.id || `${state.room}-${state.seat}-${startLocal.toISOString()}`,
-    room: String(state.room),
-    seat: String(state.seat),
-    startTime: startLocal.toISOString(),
-    endTime:   endLocal.toISOString(),
-    startHour: selHour,
-    endHourExclusive,
-    startDateOnly: localDateStr(startLocal),
-    status: "PENDING",
-    pin: apiResult.pin || rec.pin || null,
-    createdAt: new Date().toISOString(),
-    raw:  apiResult.rec
-  };
-
-  localStorage.setItem("myReservation", JSON.stringify({
-    id: pendingLocal.id,
-    room: pendingLocal.room,
-    seat: pendingLocal.seat,
-    status: "PENDING",
-    startTime: pendingLocal.startTime,
-    endTime: pendingLocal.endTime,
-    pin: pendingLocal.pin,
-    createdAt: new Date().toISOString() // ADD
-  }));
-
-  // 예약 성공 후(로컬 저장 직후) 다른 탭에 변경 알림 브로드캐스트
-  localStorage.setItem("reservationUpdate", Date.now().toString());
-
-  // 6) 즉시 UI에 반영 (초록 표시)
-  const idx = state.reservations.findIndex(r => r.id === pendingLocal.id);
-  if (idx >= 0) state.reservations[idx] = pendingLocal;
-  else state.reservations.push(pendingLocal);
-  renderTimeStatusForSeat(String(pendingLocal.seat));
-
-  // 7) 최신화(합치기 로직 덕분에 새로고침해도 유지)
-  await refreshReservationsForRoom(state.room);
-
-  // 8) 알림 (표시용으로 끝 시각을 보기 좋게 보여주고 싶으면 여기서만 -1분/-1초 해도 됨)
-  const pin = apiResult.pin || rec.pin || "UNKNOWN";
-  alert(`예약 완료 ! 20분내로 입실해주세요.\n좌석: ${rec.seat}\n시간: ${state.time}\n입실 PIN: ${pin}`);
-});
-
-
-  leaveBtn.addEventListener("click", () => window.location.href = "checkout.html");
-  extendBtn.addEventListener("click", async () => {
-  // 1) 연장할 좌석이 선택돼 있어야 함(현재 사용 좌석을 클릭해 선택)
-  if (!state.seat) {
-    alert("연장할 좌석을 먼저 선택해주세요(현재 사용 중인 좌석).");
-    return;
-  }
-
-  // 2) 최신화
-  await refreshReservationsForRoom(state.room);
-
-  // 3) 지금 시간대의 '내' 체크인 예약 찾기
-  const base = findMyActiveReservationForSeat(state.seat);
-  if (!base) {
-    alert("현재 시간에 사용 중인 내 예약을 찾을 수 없습니다.\n(체크인 상태 + 같은 좌석이어야 합니다.)");
-    return;
-  }
-
-  // 4) 프론트 가드: 종료 20분 전 ~ 종료 사이만 허용
-  const now = new Date();
-  const endTime = new Date(base.endTime);
-  const earliest = new Date(endTime.getTime() - EXTEND_WINDOW_MIN * 60 * 1000);
-  if (now < earliest || now > endTime) {
-    alert(`연장은 종료 ${EXTEND_WINDOW_MIN}분 전부터 종료 시각까지 가능합니다.\n(현재 종료: ${endTime.toLocaleTimeString()})`);
-    return;
-  }
-
-  // 5) 서버에 연장 요청 (서버가 '다음 예약/최대 3시간'을 최종 판정)
-  const api = await apiExtendReservation(base.id);
-  if (!api.ok) {
-    alert("연장 실패: " + (api.reason || "서버 오류"));
-    await refreshReservationsForRoom(state.room);
-    return;
-  }
-
-  // 6) UI 갱신 및 안내
-  await refreshReservationsForRoom(state.room);
-  const updated = (state.reservations || []).find(r => String(r.id) === String(api.rec.id));
-  const newEnd = updated ? new Date(updated.endTime) : null;
-  alert(`연장 완료! 새 종료시각: ${newEnd ? newEnd.toLocaleTimeString() : "(갱신됨)"}`);
-});
-
-
+  // 시간 버튼
   $$(".time-grid button").forEach(b => b.addEventListener("click", onTimeClick));
+
+  // ====== 퇴실 모달 오픈 ======
+  leaveBtn.addEventListener("click", () => {
+    const modal = document.getElementById("checkoutModal");
+    const sidEl = document.getElementById("cm-student");
+    const pwEl  = document.getElementById("cm-pw");
+
+    // 입력 초기화 + 학번 자동 채우기(로그인 정보 있으면)
+    if (sidEl) {
+      const u = JSON.parse(localStorage.getItem("user") || "null");
+      sidEl.value = u?.studentId || "";
+    }
+    if (pwEl) pwEl.value = "";
+
+    // 좌석 라벨 채우기
+    const seatSpan = document.getElementById("cm-seat");
+    if (seatSpan) {
+      if (state.seat) {
+        const seatEl =
+          document.querySelector(`#room-${state.room} .seat[data-seat-id="${state.seat}"]`)
+          || document.querySelector(`.seat[data-seat-id="${state.seat}"]`);
+        const label = seatEl ? (seatEl.dataset.seatLabel || seatEl.textContent.trim() || state.seat) : state.seat;
+        seatSpan.textContent = label;
+      } else {
+        seatSpan.textContent = "-";
+      }
+    }
+
+    // 내 활성 예약 id 미리 세팅(있으면)
+    if (modal) {
+      const rec = state.seat ? findMyActiveReservationForSeat(state.seat) : null;
+      if (rec) modal.dataset.reservationId = rec.id;
+      else delete modal.dataset.reservationId;
+      modal.classList.add("show");
+    }
+  });
+
+  // ====== 연장 모달 오픈 ======
+  extendBtn.addEventListener("click", async () => {
+    if (!state.seat) { alert("연장할 좌석을 먼저 선택해주세요(현재 사용 중인 좌석)."); return; }
+
+    await refreshReservationsForRoom(state.room);
+    const base = findMyActiveReservationForSeat(state.seat);
+    if (!base) { alert("현재 시간에 사용 중인 내 예약을 찾을 수 없습니다.\n(체크인 상태 + 같은 좌석이어야 합니다.)"); return; }
+
+    // 종료 20분 전 ~ 종료까지 허용
+    const now = new Date(), endTime = new Date(base.endTime);
+    const earliest = new Date(endTime.getTime() - EXTEND_WINDOW_MIN * 60 * 1000);
+    if (now < earliest || now > endTime) {
+      alert(`연장은 종료 ${EXTEND_WINDOW_MIN}분 전부터 종료 시각까지 가능합니다.\n(현재 종료: ${endTime.toLocaleTimeString()})`);
+      return;
+    }
+
+    // 모달 채우기
+    const mdl = document.getElementById("extendModal");
+    const seatEl = document.querySelector(`#room-${state.room} .seat[data-seat-id="${state.seat}"]`)
+                 || document.querySelector(`.seat[data-seat-id="${state.seat}"]`);
+    const label = seatEl ? (seatEl.dataset.seatLabel || seatEl.textContent.trim() || state.seat) : state.seat;
+
+    document.getElementById("em-seat").textContent  = label;
+    document.getElementById("em-start").textContent = pubHM(base.startTime);
+    document.getElementById("em-end").textContent   = pubHM(minus1min(base.endTime));
+
+    const u = JSON.parse(localStorage.getItem("user") || "null");
+    document.getElementById("em-student").value = u?.studentId || "";
+    document.getElementById("em-pw").value = "";
+
+    mdl.dataset.reservationId = base.id;
+    mdl.classList.add("show");
+  });
 }
+
+// 모달 내부 버튼 바인딩 (최초 1회면 충분)
+(function bindCheckoutModalOnce(){
+  const modal = document.getElementById("checkoutModal");
+  if (!modal || modal.__bound) return;
+  modal.__bound = true;
+
+  const close = () => modal.classList.remove("show");
+  modal.querySelector(".rm-close")?.addEventListener("click", close);
+  modal.addEventListener("click", (e)=>{ if(e.target === modal) close(); });
+
+  document.getElementById("cm-do")?.addEventListener("click", async ()=> {
+    const sid = (document.getElementById("cm-student")?.value || "").trim();
+    const pw  = (document.getElementById("cm-pw")?.value || "").trim();
+    if (!sid || !pw) { alert("학번/비밀번호를 입력해주세요."); return; }
+
+    // 토큰 없으면 조용히 로그인
+    if (!localStorage.getItem("token")) {
+      const login = await silentLoginByStudent(sid, pw);
+      if (!login.ok) { alert(login.message || "로그인 실패"); return; }
+    }
+
+    // reservationId: 모달에 저장된 값 → localStorage → 학번으로 조회
+    let rid = modal.dataset.reservationId || localStorage.getItem("lastReservationId") || "";
+    if (!rid) {
+      rid = await findActiveReservationIdByStudent(sid);
+      if (!rid) { alert("퇴실할 예약을 찾지 못했습니다."); return; }
+    }
+
+    const res = await apiCheckout(rid, pw);
+    if (!res.ok) { alert("퇴실 실패: " + (res.message || "알 수 없는 오류")); return; }
+
+    alert("퇴실이 완료되었습니다. 이용해주셔서 감사합니다!");
+    localStorage.setItem("reservationUpdate", Date.now().toString());
+    localStorage.removeItem("lastReservationId");
+    localStorage.removeItem("myReservation");
+    close();
+    await refreshReservationsForRoom(state.room);
+  });
+})();
+
+(function bindExtendModalOnce(){
+  const modal = document.getElementById("extendModal");
+  if (!modal || modal.__bound) return;
+  modal.__bound = true;
+
+  const close = () => modal.classList.remove("show");
+  modal.querySelector(".rm-close")?.addEventListener("click", close);
+  modal.addEventListener("click", (e)=>{ if(e.target === modal) close(); });
+
+  document.getElementById("em-do")?.addEventListener("click", async () => {
+    const sid = (document.getElementById("em-student")?.value || "").trim();
+    const pw  = (document.getElementById("em-pw")?.value || "").trim();
+    if (!sid || !pw) { alert("학번/비밀번호를 입력해주세요."); return; }
+
+    // 토큰 없으면 조용히 로그인
+    if (!localStorage.getItem("token")) {
+      const login = await silentLoginByStudent(sid, pw);
+      if (!login.ok) { alert(login.message || "로그인 실패"); return; }
+    }
+
+    await refreshReservationsForRoom(state.room);
+    const rid = modal.dataset.reservationId;
+    if (!rid) { alert("연장할 예약을 찾을 수 없습니다."); return; }
+
+    // (선택) 다음 예약 있는지 프런트 선검사 – 서버도 최종 검증함
+    const base = (state.reservations || []).find(r => String(r.id) === String(rid));
+    if (!base) { alert("연장할 예약을 찾을 수 없습니다."); return; }
+
+    const nextBlock = (state.reservations || []).some(r => {
+      if (String(r.room) !== String(state.room)) return false;
+      if (String(r.seatId ?? r.seat) !== String(base.seatId ?? base.seat)) return false;
+      if (!r.startTime || !r.endTime) return false;
+      const st = new Date(r.startTime).getTime();
+      const end = new Date(base.endTime).getTime();
+      const until = end + 3*60*60*1000; // 3시간
+      const stat = String(r.status || "").toUpperCase();
+      const counts = (stat === "PENDING" || stat === "CHECKED_IN"); // '다음 예약자' 정의
+      return counts && st >= end && st < until && r.id !== base.id;
+    });
+    if (nextBlock) { alert("다음 예약자가 있어 연장할 수 없습니다."); return; }
+
+    // 실제 연장 API 호출
+    const api = await apiExtendReservation(rid);
+    if (!api.ok) { alert("연장 실패: " + (api.reason || "서버 오류")); await refreshReservationsForRoom(state.room); return; }
+
+    close();
+    await refreshReservationsForRoom(state.room);
+    const updated = (state.reservations || []).find(r => String(r.id) === String(api.rec.id));
+    alert(`연장 완료! 새 종료시각: ${updated ? new Date(updated.endTime).toLocaleTimeString() : "(갱신됨)"}`);
+  });
+})();
+
 
 // ----------------- 초기화 -----------------
 function init() {
-  requireLogin();       // ✅ 로그인 안 했으면 index.html로 이동
+  //requireLogin();       // ✅ 로그인 안 했으면 index.html로 이동
   renderLoggedInUser(); // ✅ 로그인 사용자 아이디 표시
 
-  $$(".room-btn").forEach(btn =>
-    btn.addEventListener("click", () => switchRoom(btn.dataset.room))
-  );
+  setAllowSeatPick(false);          // ✅ 첫 진입은 좌석 선택 불가
+
   $$(".seat").forEach(seat => seat.addEventListener("click", onSeatClick));
 
   bindActions();

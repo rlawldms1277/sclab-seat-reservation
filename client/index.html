@@ -3,91 +3,113 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>자리 예약 - SCLab</title>
+  <title>자리 선택 - SCLab</title>
   <link rel="stylesheet" href="css/seat.css" />
-  <link rel="stylesheet" href="css/common.css" />
-
 </head>
 <body>
-  <!-- 헤더 -->
-  <header class="navbar">
-    <div class="logo">SClab</div>
-    <!-- 우측 컨트롤: 위 user-info, 아래 nav -->
-    <div class="right-controls">
-      <div class="user-info" id="user-info"></div>
-      <nav class="main-nav">
-        <a href="index.html" data-i18n="main">Main</a>
-        <span class="divider">|</span>
-        <a href="login.html" data-i18n="login">로그인</a>
-        <span class="divider">|</span>
-        <a href="signup.html" data-i18n="signup">회원가입</a>
-      </nav>
+  <!-- 좌측 상단: Language -->
+  <div class="lang">
+    <div class="lang-trigger">
+      Language <span class="arrow">▼</span>
     </div>
-  </header>
-
-  <main class="seat-page">
-    <!-- 언어 전환 버튼 -->
-    <div class="lang-switch left">
-      <button id="btn-lang">English</button>
+    <div class="lang-menu">
+      <div class="lang-current">현재 언어 : <span>한국어</span></div>
+      <button data-lang="ko">Korean</button>
+      <button data-lang="en">English</button>
     </div>
+  </div>
 
-    <!-- 상단 탭 -->
-    <div class="top-row">
-      <div class="title-chip blue" data-i18n="seatSelect">자리 선택</div>
-      <div class="room-tabs">
-        <button class="room-btn active" data-room="901">901</button>
-        <button class="room-btn" data-room="907">907</button>
+  <!-- 우측 상단: 날짜/시간 -->
+  <div class="clock-box">
+    <span id="nowDate">0000.00.00</span>
+    <span id="nowTime">PM 00:00</span>
+  </div>
+
+  <!-- 메인 레이아웃 -->
+  <main class="main-layout">
+
+  <section class="status-panel">
+  <!-- 왼쪽 좁은 카드 안에 907 배치 -->
+  <div class="status-card">
+  <div class="room-box" style="margin-bottom:8px;">907</div>
+    <!-- 907 좌석 캔버스 (작게) -->
+    <div id="room-907" class="seats-canvas seats-907">
+      <!-- 상단: 왼쪽은 고정석 유지, 오른쪽은 예약 가능 -->
+      <div class="seat fixed"      data-fixed="true" style="left:0px;   top:70px;">선택불가</div>
+      <div class="seat available"  data-seat-id="15"  style="left:160px; top:70px;">15</div>
+
+      <!-- 하단: 왼쪽을 예약 가능, 오른쪽은 기존처럼 13(backend seatId=14) -->
+      <div class="seat available bottom" data-seat-id="16" style="left:0px;">16</div>
+      <div class="seat available bottom" data-seat-id="14" data-seat-label="13" style="left:160px;">13</div>
+    </div>
+  </div>
+</section>
+
+
+  <section class="map-panel">
+  <!-- 901 -->
+  <div class="room-box">901</div>
+  <div id="room-901" class="seats-canvas">
+    <div class="seat available" data-seat-id="1"  style="left:130px; top:70px;">1</div>
+    <div class="seat available" data-seat-id="2"  style="left:270px; top:70px;">2</div>
+    <div class="seat available" data-seat-id="3"  style="left:130px; top:237px;">3</div>
+    <div class="seat available" data-seat-id="4"  style="left:270px; top:237px;">4</div>
+    <div class="seat available" data-seat-id="5"  style="left:550px; top:70px;">5</div>
+    <div class="seat fixed" data-fixed="true" style="left:690px; top:70px;">고정석</div>
+    <div class="seat available" data-seat-id="8"  style="left:690px; top:237px;">8</div>
+    <div class="seat available" data-seat-id="7"  style="left:550px; top:237px;">7</div>
+    <div class="seat available" data-seat-id="9"  style="left:30px;  top:510px;">9</div>
+    <div class="seat available" data-seat-id="10" style="left:200px; top:510px;">10</div>
+    <div class="seat available" data-seat-id="11" style="left:370px; top:510px;">11</div>
+    <div class="seat fixed"     data-fixed="true" data-seat-id="12" style="left:540px; top:510px;">고정석</div>
+    <div class="seat available" data-seat-id="13" style="left:710px; top:510px;">13</div>
+  </div>
+</section>
+
+
+    <!-- 우측: 사용자 영역 -->
+    <aside class="side-panel">
+      <div class="hello">
+        <div class="line1"><span class="brand-text">SCLab</span> 사용자님</div>
+        <div class="line2">안녕하세요</div>
       </div>
-    </div>
 
-    <div class="grid">
-      <!-- 901호 -->
-      <section class="room-wrap">
-        <div id="room-901" class="room active">
-          <div class="room-canvas">
-            <!-- 각 좌석에 data-seat-id 추가 -->
-            <div class="seat available" data-seat-id="1" style="left:220px; top:40px;">1</div>
-            <div class="seat available" data-seat-id="2" style="left:300px; top:40px;">2</div>
-            <div class="seat available" data-seat-id="3" style="left:220px; top:120px;">3</div>
-            <div class="seat available" data-seat-id="4" style="left:300px; top:120px;">4</div>
-            <div class="seat available" data-seat-id="5" style="left:520px; top:40px;">5</div>
-            <div class="seat available" data-seat-id="6" style="left:600px; top:40px;">6</div>
-            <div class="seat available" data-seat-id="7" style="left:520px; top:120px;">7</div>
-            <div class="seat available" data-seat-id="8" style="left:600px; top:120px;">8</div>
-            <div class="seat available" data-seat-id="9" style="left:260px; top:300px;">9</div>
-            <div class="seat available" data-seat-id="10" style="left:340px; top:300px;">10</div>
-            <div class="seat available" data-seat-id="11" style="left:420px; top:300px;">11</div>
-            <div class="seat available" data-seat-id="12" style="left:500px; top:300px;">12</div>
-            <div class="seat available" data-seat-id="13" style="left:580px; top:300px;">13</div>
-          </div>
-          <div class="legend">
-            <span><i class="dot used"></i> <span data-i18n="used">사용 중</span></span>
-            <span><i class="dot free"></i> <span data-i18n="free">사용 가능</span></span>
-          </div>
+      <div class="rules">
+        <p>자리 예약 시 4시간 동안 사용 가능합니다.<br>(ex : 09:00 선택 시, 12:59 자동 퇴실)</p>
+        <p>다음 예약자가 없는 경우 3시간 연장 사용이 가능합니다.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span id="selSeatLabel">선택 좌석</span> 예약 현황
         </div>
+        <div id="currentResv" class="muted">좌석을 먼저 선택하세요</div>
+      </div>
 
-        <!-- 907호 -->
-        <div id="room-907" class="room">
-          <div class="room-canvas">
-            <!-- 907호 고정석들: seat-id 제거 + data-fixed="true" 추가 -->
-            <div class="seat used" data-i18n="fixedSeat" data-fixed="true" style="left:0px; top:40px;">고정석</div>
-            <div class="seat used" data-i18n="fixedSeat" data-fixed="true" style="left:0px; top:180px;">고정석</div>
-            <div class="seat used" data-i18n="fixedSeat" data-fixed="true" style="left:620px; top:40px;">고정석</div>
+      <div class="actions">
+        <button id="btnReserve" class="btn btn--primary">예약하기</button>
+        <button id="btnLeave"   class="btn btn--primary">퇴실하기</button>
+        <button id="btnExtend"  class="btn btn--primary">연장하기</button>
+      </div>
 
-            <!-- 14번은 그대로 유지 (예약 가능) -->
-            <div class="seat available" data-seat-id="14" style="left:620px; top:180px;">14</div>
+      <div class="admin-link">
+        <a href="viewseats.html">관리자 페이지</a>
+      </div>
+    </aside>
+  </main>
 
-          </div>
-          <div class="legend">
-            <span><i class="dot used"></i> <span data-i18n="used">사용 중</span></span>
-            <span><i class="dot free"></i> <span data-i18n="free">사용 가능</span></span>
-          </div>
-        </div>
-      </section>
+  <!-- 예약 모달 -->
+  <div id="timeModal" class="reserve-modal">
+    <div class="rm-dialog">
+      <div class="rm-head">
+        <h3>좌석 예약하기</h3>
+        <button class="rm-close" aria-label="닫기">✕</button>
+      </div>
 
-      <!-- 시간 패널 -->
-      <aside class="time-panel">
-        <h3 class="panel-title" data-i18n="timeSelect">예약 시간 선택</h3>
+      <div class="rm-sub">현재 선택한 좌석은 <b id="rm-seat">-</b>번입니다</div>
+
+      <!-- 시간을 선택하면 seat.js가 상태를 잡고, 여기서는 미리보기만 갱신 -->
+      <div class="rm-times">
         <div class="time-grid">
           <button>9:00</button><button>10:00</button>
           <button>11:00</button><button>12:00</button>
@@ -95,90 +117,167 @@
           <button>15:00</button><button>16:00</button>
           <button>17:00</button><button>18:00</button>
         </div>
-        <div class="legend-row">
-          <span><i class="dot available"></i> <span data-i18n="available">예약 가능</span></span>
-          <span><i class="dot reserved"></i> <span data-i18n="reserved">예약 중</span></span>
-          <span><i class="dot done"></i> <span data-i18n="completed">예약 완료</span></span>
+
+        <div class="rm-range">
+          <div class="rm-box">
+            <div class="rm-box-label">시작시간</div>
+            <div class="rm-box-value" id="rm-start">--:--</div>
+          </div>
+          <div class="rm-box">
+            <div class="rm-box-label">퇴실시간</div>
+            <div class="rm-box-value" id="rm-end">--:--</div>
+          </div>
         </div>
-      </aside>
+      </div>
+
+      <div class="rm-form">
+        <input id="rm-student" type="text" placeholder="학번을 입력해주세요" autocomplete="off" />
+        <input id="rm-pw" type="password" placeholder="비밀번호를 입력해주세요" autocomplete="off" />
+      </div>
+
+      <div class="rm-note">원활한 사용을 위해 퇴실 시간을 지켜주시기 바랍니다.</div>
+
+      <div class="rm-actions">
+        <button class="rm-primary" id="rm-go-reserve">예약하기</button>
+      </div>
+    </div>
+  </div>
+
+<!-- 퇴실 모달 -->
+<div id="checkoutModal" class="reserve-modal">
+  <div class="rm-dialog">
+    <div class="rm-head">
+      <h3>좌석 퇴실하기</h3>
+      <button class="rm-close" aria-label="닫기">✕</button>
+    </div>
+    
+    <!-- ✅ 추가: 현재 선택 좌석 라벨 -->
+  <div class="rm-sub">현재 선택한 좌석은 <b id="cm-seat">-</b>번입니다</div>
+
+   <div class="rm-form">
+      <input id="cm-student" type="text" placeholder="학번을 입력해주세요" autocomplete="off" />
+      <input id="cm-pw" type="password" placeholder="비밀번호를 입력해주세요" autocomplete="off" />
     </div>
 
-    <!-- 안내 문구 -->
-    <div class="notice">
-      <p data-i18n="rule1">1. 자리 예약 시 4시간동안 사용가능합니다. (ex : 9:00 선택 시, 12:59분 자동 퇴실)</p>
-      <p data-i18n="rule2">2. 다음 예약자가 없는 경우 3시간 연장이 가능합니다.</p>
+    <div class="rm-actions">
+      <button class="rm-primary" id="cm-do">퇴실하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 연장 모달 -->
+<div id="extendModal" class="reserve-modal">
+  <div class="rm-dialog">
+    <div class="rm-head">
+      <h3>좌석 연장하기</h3>
+      <button class="rm-close" aria-label="닫기">✕</button>
     </div>
 
-    <!-- 하단 버튼 -->
-    <div class="actions">
-      <button class="action-btn" id="btnReserve" data-i18n="reserveBtn">예약</button>
-      <button class="action-btn" id="btnEnter" onclick="location.href='entering.html'" data-i18n="enterBtn">입실</button>
-      <button class="action-btn" id="btnLeave" onclick="location.href='checkout.html'" data-i18n="leaveBtn">퇴실</button>
-      <button class="action-btn" id="btnExtend" data-i18n="extendBtn">연장</button>
+    <div class="rm-sub">현재 선택한 좌석은 <b id="em-seat">-</b>번입니다</div>
+
+    <div class="rm-range" style="margin-bottom:8px;">
+      <div class="rm-box">
+        <div class="rm-box-label">시작시간</div>
+        <div class="rm-box-value" id="em-start">--:--</div>
+      </div>
+      <div class="rm-box">
+        <div class="rm-box-label">퇴실시간</div>
+        <div class="rm-box-value" id="em-end">--:--</div>
+      </div>
     </div>
 
-    <div id="remainTime" class="remain-time"></div>
-  </main>
+    <div class="rm-form">
+      <input id="em-student" type="text" placeholder="학번을 입력해주세요" autocomplete="off" />
+      <input id="em-pw" type="password" placeholder="비밀번호를 입력해주세요" autocomplete="off" />
+    </div>
 
-    <!-- seat.html -->
-    <script type="module" src="./js/seat.js"></script>
+    <div class="rm-note">다음 예약자가 없는 경우에만 최대 3시간 연장됩니다.</div>
 
-      
-  <!-- 번역 스크립트 -->
+    <div class="rm-actions">
+      <button class="rm-primary" id="em-do">연장하기</button>
+    </div>
+  </div>
+</div>
+
+
+  <!-- 간단 스크립트 -->
   <script>
-   const translations = {
-      en: {
-        main :"Main",
-        login : "Login",
-        signup : "Signup",
-        fixedSeat: "Fixed seat",
-        seatSelect: "Seat Selection",
-        timeSelect: "Select Time",
-        reserveBtn: "Reserve",
-        enterBtn : "Enter",
-        leaveBtn: "Leave",
-        extendBtn: "Extend",
-        used: "In Use",
-        free: "Available",
-        available: "Reservable",
-        reserved: "Reserved",
-        completed: "Completed",
-        rule1: "You can use your seat for 4 hours after reservation. (Ex. 9:00 → auto checkout 12:59)",
-        rule2: "If no one has reserved after you, you can extend for 3 more hours."
-      },
-      ko: {
-        main :"Main",
-        login : "로그인",
-        signup : "회원가입",
-        fixedSeat: "고정석",  
-        seatSelect: "자리 선택",
-        timeSelect: "예약 시간 선택",
-        reserveBtn: "예약",
-        enterBtn : "입실",
-        leaveBtn: "퇴실",
-        extendBtn: "연장",
-        used: "사용 중",
-        free: "사용 가능",
-        available: "예약 가능",
-        reserved: "예약 중",
-        completed: "예약 완료",
-        rule1: "1. 자리 예약 시 4시간동안 사용가능합니다. (ex : 9:00 선택 시, 12:59분 자동 퇴실)",
-        rule2: "2. 다음 예약자가 없는 경우 3시간 연장이 가능합니다."
-      }
-    };
+    // 시계
+    function tick(){
+      const n=new Date();
+      const y=n.getFullYear(), m=String(n.getMonth()+1).padStart(2,"0"), d=String(n.getDate()).padStart(2,"0");
+      const h=n.getHours(), M=String(n.getMinutes()).padStart(2,"0");
+      const ampm = h<12? "AM":"PM";
+      const hh = String((h%12)||12).padStart(2,"0");
+      document.getElementById("nowDate").textContent = `${y}.${m}.${d}`;
+      document.getElementById("nowTime").textContent = `${ampm} ${hh}:${M}`;
+    }
+    tick(); setInterval(tick, 15_000);
 
-    let currentLang = "ko";
-    document.getElementById("btn-lang").addEventListener("click", () => {
-      currentLang = currentLang === "ko" ? "en" : "ko";
+    // 언어 메뉴
+    const lang = document.querySelector('.lang');
+    document.querySelector('.lang-trigger').addEventListener('click', ()=> lang.classList.toggle('open'));
+    document.addEventListener('click', (e)=>{ if(!lang.contains(e.target)) lang.classList.remove('open'); });
 
-      document.querySelectorAll("[data-i18n]").forEach(el => {
-        const key = el.getAttribute("data-i18n");
-        el.textContent = translations[currentLang][key];
-      });
-
-      document.getElementById("btn-lang").textContent =
-        currentLang === "ko" ? "English" : "한국어";
-    });
+    
   </script>
+
+  <!-- seat.js 로직 연결 -->
+  <script type="module" src="./js/seat.js"></script>
+  <script>
+(function(){
+  const modal     = document.getElementById('timeModal');
+  const seatLabel = document.getElementById('rm-seat');
+  const startEl   = document.getElementById('rm-start');
+  const endEl     = document.getElementById('rm-end');
+
+  // ✅ 두 방 공통: 좌석 클릭 시 모달
+  document.addEventListener('click', (e)=>{
+    const seat = e.target.closest('.seat');
+    if (!seat) return;
+
+    //⛔ 예약하기를 누르기 전에는 모달 열지 않음
+    if (!window.__allowSeatPick) return;
+
+    if (seat.dataset.fixed === "true" || seat.classList.contains('used')) return;
+
+    // 표시용 라벨: data-seat-label 우선, 없으면 텍스트
+    const label = seat.dataset.seatLabel || seat.textContent.trim();
+    seatLabel.textContent = label;
+    modal.classList.add('show');
+  });
+
+  // 닫기
+  modal.querySelector('.rm-close').addEventListener('click', ()=> modal.classList.remove('show'));
+  modal.addEventListener('click', (e)=>{ if(e.target === modal) modal.classList.remove('show'); });
+
+  // 시간 미리보기
+  function two(n){ return String(n).padStart(2,'0'); }
+  function preview(label){
+    const m = label.match(/^(\d{1,2})/); if(!m) return;
+    const selH = parseInt(m[1],10);
+    const now  = new Date();
+    const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let start  = new Date(base.getFullYear(), base.getMonth(), base.getDate(), selH, 0, 0, 0);
+    if (now.getHours() === selH && now > start) {
+      start = new Date(base.getFullYear(), base.getMonth(), base.getDate(), now.getHours(), now.getMinutes(), 0, 0);
+    }
+    // end는 '선택한 정시 + 4시간 - 1분'으로 고정 (예: 17:00 → 20:59)
+    let end = new Date(base.getFullYear(), base.getMonth(), base.getDate(), selH + 4, 0, 0, 0);
+    end = new Date(end.getTime() - 60*1000);
+    startEl.textContent = `${two(start.getHours())}:${two(start.getMinutes())}`;
+    endEl.textContent   = `${two(end.getHours())}:${two(end.getMinutes())}`;
+  }
+  modal.querySelectorAll('.time-grid button').forEach(btn=>{
+    btn.addEventListener('click', ()=> preview(btn.textContent.trim()));
+  });
+
+  // 모달 "예약하기" → 기존 seat.js 버튼에 위임
+  document.getElementById('rm-go-reserve').addEventListener('click', ()=>{
+    document.getElementById('btnReserve').click();
+    modal.classList.remove('show');
+  });
+})();
+</script>
 </body>
 </html>
