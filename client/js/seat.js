@@ -2,8 +2,6 @@
 
 import { renderLoggedInUser, requireLogin } from "./user.js";
 
-
-
 // ----------------- 서버 주소 -----------------
 const BASE_URL = "https://lab-reserve-backend.onrender.com";
 
@@ -77,24 +75,44 @@ function renderSelectedSeatInfo(seatId){
 }
 
 // ==== 조용한 로그인(토큰 발급 + user 저장) ====
+// ✓ /login 로 맞추고, studentId 숫자로 보냄
 async function silentLoginByStudent(studentId, password){
   try{
-    const res = await fetch(`${BASE_URL}/auth/login`, {
+    const res = await fetch(`${BASE_URL}/login`, {
       method: "POST",
       headers: { "Content-Type":"application/json" },
-      body: JSON.stringify({ studentId, password }) // ← 백엔드 스펙에 맞게 필드명 확인
+      body: JSON.stringify({
+        studentId: Number(studentId), // ← 반드시 숫자화!
+        password
+      })
     });
-    const data = await res.json().catch(()=>null);
-    if (!res.ok) return { ok:false, message: (data?.error || data?.message || "로그인 실패") };
 
-    if (data.token) localStorage.setItem("token", data.token);
-    if (data.user)  localStorage.setItem("user", JSON.stringify(data.user));
-    return { ok:true, user: data.user || null };
+    const data = await res.json().catch(()=>null);
+
+    if (!res.ok) {
+      // 디버깅에 도움 되도록 서버 메시지 보여주기
+      const msg = (data && (data.error || data.message)) || `로그인 실패 (${res.status})`;
+      return { ok:false, message: msg };
+    }
+
+    // 토큰/유저 저장(키 이름이 다를 수도 있어 대비)
+    const token = data.token || data.accessToken || data.jwt;
+    const user  = data.user  || data.profile || data.data || null;
+
+    if (token) localStorage.setItem("token", token);
+    if (user)  localStorage.setItem("user", JSON.stringify(user));
+    else {
+      // 혹시 user 안 내려오면 입력값으로 최소한 저장
+      localStorage.setItem("user", JSON.stringify({ studentId: String(studentId) }));
+    }
+
+    return { ok:true, user: user || null };
   }catch(e){
     console.error(e);
     return { ok:false, message: "네트워크 오류" };
   }
 }
+
 
 
 
