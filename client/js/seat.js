@@ -951,11 +951,23 @@ function bindActions() {
     }
 
     // reservationId: 모달에 저장된 값 → localStorage → 학번으로 조회
-    let rid = modal.dataset.reservationId || localStorage.getItem("lastReservationId") || "";
-    if (!rid) {
-      rid = await findActiveReservationIdByStudent(sid);
-      if (!rid) { alert("퇴실할 예약을 찾지 못했습니다."); return; }
-    }
+// 1) 모달에 세팅된 값(좌석을 직접 선택했다면)
+  let rid = modal.dataset.reservationId || "";
+  // 2) 현재 체크인 중인 내 예약에서 찾기(좌석 미선택이어도 OK)
+  if (!rid) {
+    const cur = findMyCurrentCheckedInReservation();
+    if (cur) rid = cur.id;
+  }
+  // 3) 방금 만든 예약 id (같은 탭/세션이면 있음)
+  if (!rid) {
+    rid = localStorage.getItem("lastReservationId") || "";
+  }
+  // 4) 서버에서 '오늘 내 예약'을 학번으로 조회 (최후)
+  if (!rid) {
+    rid = await findActiveReservationIdByStudent(sid);
+  }
+  
+  if (!rid) { alert("퇴실할 예약을 찾지 못했습니다."); return; }
 
     const res = await apiCheckout(rid, pw);
     if (!res.ok) { alert("퇴실 실패: " + (res.message || "알 수 없는 오류")); return; }
