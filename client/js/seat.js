@@ -343,11 +343,22 @@ async function apiCreateReservation({ seat, startTimeISO, endTimeISO }) {
 
 async function apiCheckin(reservationId){
   try{
-    const res = await fetch(`${BASE_URL}/reservations/${reservationId}/checkin`, {
+    // 1) 신형 경로 먼저 시도
+    let res = await fetch(`${BASE_URL}/reservations/${reservationId}/checkin`, {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({})
     });
+
+    // 2) 없으면(404) 구형 경로로 재시도
+    if (res.status === 404) {
+      res = await fetch(`${BASE_URL}/checkin`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ reservationId: Number(reservationId) })
+      });
+    }
+
     const data = await res.json().catch(()=>null);
     if (!res.ok) return { ok:false, reason: data?.error || data?.message || "server error" };
     return { ok:true, rec: data.reservation || data };
