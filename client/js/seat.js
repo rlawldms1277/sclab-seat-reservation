@@ -156,8 +156,18 @@ function clearSession(){
 }
 
 function isAdminUser(u){
-  const c = String(u?.course || "").toUpperCase();
-  return !!u?.isAdmin || ["PROFESSOR","DOCTOR","ADMIN"].includes(c);
+  if (!u) return false;
+  // 대표 키들을 모두 확인
+  const roleOne = String(u.role || u.course || u.type || "").toUpperCase();
+  const roles   = Array.isArray(u.roles) ? u.roles.map(r => String(r).toUpperCase()) : [];
+
+  return Boolean(
+    u.isAdmin || u.admin ||                      // 불리언 플래그
+    roleOne.includes("ADMIN")    ||
+    roleOne.includes("PROFESSOR")||
+    roleOne.includes("DOCTOR")   ||
+    roles.some(r => ["ADMIN","PROFESSOR","DOCTOR"].includes(r))
+  );
 }
 
 function syncHelloName(){
@@ -643,24 +653,25 @@ function renderTimeStatusForSeat(seatId) {
 
 
 async function refreshReservationsForRoom(room) {
-  cleanupLocalReservation(); // ← 이 줄을 맨 앞에 추가
+    if (__refreshing) return;          // 겹치기 방지
+    __refreshing = true;
+    try {
+      cleanupLocalReservation();
 
-  const raw = await apiFetchReservations(room);
-  state.reservations = raw.map(normalizeReservationRaw);
+      const raw = await apiFetchReservations(room);
+      state.reservations = raw.map(normalizeReservationRaw);
 
-  // ✅ 로컬 PENDING 합치기 (새로고침해도 '예약중' 유지)
-  mergeLocalPendingReservation();
-
-  // ✅ 좌석 현황 업데이트
-  updateSeatUI(room);
-  renderTimeStatusForSeat(state.seat);
-  updateExtendButtonState();
-  startRemainTimer();
-
-  // ✅ 선택 좌석이 있으면 우측카드 재렌더
-  if (state.seat) renderSelectedSeatInfo(state.seat);
-}
-
+      mergeLocalPendingReservation();
+      updateSeatUI(room);
+      renderTimeStatusForSeat(state.seat);
+      updateExtendButtonState();
+      startRemainTimer();
+      if (state.seat) renderSelectedSeatInfo(state.seat);
+    } finally {
+      __refreshing = false;
+    }
+  }
+  
 function updateSeatUI(room) {
   const reservations = state.reservations || [];
   const seats = $$("#room-" + room + " .seat");
@@ -1079,7 +1090,7 @@ function init() {
 
    // ✅ 선택(권장): 주기적 새로고침 (중복 방지 가드)
   if (!window.__seatPoll) {
-    window.__seatPoll = setInterval(() => refreshReservationsForRoom(state.room), 10_000);
+    window.__seatPoll = setInterval(() => refreshReservationsForRoom(state.room), 3000);
   }
 
 
