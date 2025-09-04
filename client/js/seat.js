@@ -891,17 +891,16 @@ function bindActions() {
     localStorage.setItem("lastReservationId", String(made.id));
     const chk = await apiCheckin(made.id); // ← 여기서 바로 입실
     if (!chk.ok) {
-      alert("예약은 생성됐지만 체크인은 실패했습니다. 다시 시도해주세요.");
+      alert(`예약은 생성되었지만 체크인은 실패했습니다.\n사유: ${chk.reason || "알 수 없는 오류"}`);
+      await refreshReservationsForRoom(state.room);
+      setAllowSeatPick(false);
+      return;           // ⛔ 성공 팝업 띄우지 않고 종료
     }
 
-    // 5) UI 갱신
+    alert(`예약 및 입실 완료!\n좌석: ${made.seat}\n시간: ${state.time}`);
     await refreshReservationsForRoom(state.room);
     renderSelectedSeatInfo(state.seat);
-
-    // 6) 안내 (PIN 문구 제거)
-    alert(`예약 및 입실 완료!\n좌석: ${made.seat}\n시간: ${state.time}`);
     setAllowSeatPick(false);
-  });
 
   // 시간 버튼
   $$(".time-grid button").forEach(b => b.addEventListener("click", onTimeClick));
