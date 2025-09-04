@@ -901,6 +901,7 @@ function bindActions() {
     await refreshReservationsForRoom(state.room);
     renderSelectedSeatInfo(state.seat);
     setAllowSeatPick(false);
+  });
 
   // 시간 버튼
   $$(".time-grid button").forEach(b => b.addEventListener("click", onTimeClick));
