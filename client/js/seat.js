@@ -9,6 +9,8 @@ const BASE_URL = "https://lab-reserve-backend.onrender.com";
 // ----------------- 상태 관리 -----------------
 const state = { room: "901", seat: null, time: null, user: null, reservations: [], allowSeatPick: false };
 
+let __refreshing = false;   // 중복 새로고침 가드
+
 // 전역 플래그 동기화(모달 스크립트에서 사용)
 function setAllowSeatPick(v) {
   state.allowSeatPick = v;
@@ -218,7 +220,7 @@ const PENDING_TTL_MIN = 20;
 const ONE_MIN = 60 * 1000;
 
 
-const EXTEND_WINDOW_MIN = 20; // 종료 20분 전~종료까지 연장 가능
+const EXTEND_WINDOW_MIN = 30; // 종료 20분 전~종료까지 연장 가능
 const EXTEND_MAX_HOURS  = 3;  // 최대 3시간(서버와 의미 일치, 참고용)
 
 
@@ -265,8 +267,7 @@ function updateExtendButtonState() {
   extendBtn.classList.toggle("is-disabled", isBlocked);
   extendBtn.setAttribute("aria-disabled", isBlocked ? "true" : "false");
 
-  // ❌ 금지: 클릭 막히니 절대 쓰지 마세요
-  // extendBtn.disabled = true/false;
+
 }
 
 function getStudentIdFromRec(rec){
@@ -410,13 +411,19 @@ async function apiExtendReservation(reservationId) {
 // ----------------- 정규화 함수 -----------------
 function normalizeReservationRaw(raw) {
   const room = raw.room || raw.roomId || (raw.seat && raw.seat.room) || state.room;
-  const userId = (raw.userId ?? (raw.user && raw.user.id)) ?? null;
-  let seat = raw.seat || raw.seatId;
-  if (seat && typeof seat === "object") seat = seat.seatNumber || seat.id;
 
-    // ✅ 응답이 seatId/seat.id 또는 seatNumber/seat.seatNumber 로 올 경우 모두 수용
-  const seatId     = (raw.seatId ?? (raw.seat && raw.seat.id)) ?? null;
-  const seatNumber = (raw.seatNumber ?? (raw.seat && raw.seat.seatNumber)) ?? null;
+  // ✅ seatId / seatNumber 파싱: raw.seat 이 객체가 아니고 숫자/문자여도 처리
+  const seatId =
+    raw.seatId ??
+    (raw.seat && typeof raw.seat === "object" ? raw.seat.id : null);
+
+  const seatNumber =
+    raw.seatNumber ??
+    (raw.seat && typeof raw.seat === "object"
+      ? raw.seat.seatNumber
+      : (typeof raw.seat === "number" || typeof raw.seat === "string"
+          ? Number(raw.seat)
+          : null));
 
   const start = raw.startTime;
   const end   = raw.endTime;
@@ -427,14 +434,18 @@ function normalizeReservationRaw(raw) {
   if (endDate) {
     endHourExclusive = endDate.getHours();
     if (endDate.getMinutes() > 0 || endDate.getSeconds() > 0 || endDate.getMilliseconds() > 0) {
-      endHourExclusive += 1; // ← 여기 보정
+      endHourExclusive += 1;
     }
   }
 
+  const userId = (raw.userId ?? (raw.user && raw.user.id)) ?? null;
+
   return {
-    id: raw.id || `${room}-${seat}-${start}`,
+    id: raw.id || `${room}-${(seatId ?? seatNumber)}-${start}`,
     room: String(room),
-    seat: seatId != null ? String(seatId) : (seatNumber != null ? String(seatNumber) : null),
+
+    // ⬇️ 여기들이 이후 모든 매칭의 기준이 됩니다
+    seat: (seatId != null ? String(seatId) : (seatNumber != null ? String(seatNumber) : null)),
     seatId: seatId != null ? String(seatId) : null,
     seatNumber: seatNumber != null ? String(seatNumber) : null,
 
@@ -443,10 +454,10 @@ function normalizeReservationRaw(raw) {
     startTime: startDate ? startDate.toISOString() : null,
     endTime: endDate ? endDate.toISOString() : null,
     startHour: startDate ? startDate.getHours() : null,
-    endHourExclusive, // ← 보정값 사용
+    endHourExclusive,
     status: raw.status || "",
     pin: raw.pin || null,
-    createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : null, 
+    createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : null,
     startDateOnly: startDate ? localDateStr(startDate) : null,
     userId: userId != null ? Number(userId) : null,
     raw
@@ -671,7 +682,7 @@ async function refreshReservationsForRoom(room) {
       __refreshing = false;
     }
   }
-  
+
 function updateSeatUI(room) {
   const reservations = state.reservations || [];
   const seats = $$("#room-" + room + " .seat");

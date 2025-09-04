@@ -228,60 +228,75 @@
 
   <!-- seat.js 로직 연결 -->
   <script type="module" src="./js/seat.js"></script>
+  
   <script>
-(function(){
-  const modal     = document.getElementById('timeModal');
-  const seatLabel = document.getElementById('rm-seat');
-  const startEl   = document.getElementById('rm-start');
-  const endEl     = document.getElementById('rm-end');
+  (function(){
+    const modal     = document.getElementById('timeModal');
+    const seatLabel = document.getElementById('rm-seat');
+    const startEl   = document.getElementById('rm-start');
+    const endEl     = document.getElementById('rm-end');
 
-  // ✅ 두 방 공통: 좌석 클릭 시 모달
-  document.addEventListener('click', (e)=>{
-    const seat = e.target.closest('.seat');
-    if (!seat) return;
+    // ✅ 두 방 공통: 좌석 클릭 시 모달
+    document.addEventListener('click', (e)=>{
+      const seat = e.target.closest('.seat');
+      if (!seat) return;
 
-    //⛔ 예약하기를 누르기 전에는 모달 열지 않음
-    if (!window.__allowSeatPick) return;
+      //⛔ 예약하기를 누르기 전에는 모달 열지 않음
+      if (!window.__allowSeatPick) return;
 
-    if (seat.dataset.fixed === "true" || seat.classList.contains('used')) return;
+      if (seat.dataset.fixed === "true" || seat.classList.contains('used')) return;
 
-    // 표시용 라벨: data-seat-label 우선, 없으면 텍스트
-    const label = seat.dataset.seatLabel || seat.textContent.trim();
-    seatLabel.textContent = label;
-    modal.classList.add('show');
-  });
+      // 표시용 라벨: data-seat-label 우선, 없으면 텍스트
+      const label = seat.dataset.seatLabel || seat.textContent.trim();
+      seatLabel.textContent = label;
+      modal.classList.add('show');
+    });
 
-  // 닫기
-  modal.querySelector('.rm-close').addEventListener('click', ()=> modal.classList.remove('show'));
-  modal.addEventListener('click', (e)=>{ if(e.target === modal) modal.classList.remove('show'); });
+    // 닫기
+    modal.querySelector('.rm-close').addEventListener('click', ()=> modal.classList.remove('show'));
+    modal.addEventListener('click', (e)=>{ if(e.target === modal) modal.classList.remove('show'); });
 
-  // 시간 미리보기
-  function two(n){ return String(n).padStart(2,'0'); }
-  function preview(label){
-    const m = label.match(/^(\d{1,2})/); if(!m) return;
-    const selH = parseInt(m[1],10);
-    const now  = new Date();
-    const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    let start  = new Date(base.getFullYear(), base.getMonth(), base.getDate(), selH, 0, 0, 0);
-    if (now.getHours() === selH && now > start) {
-      start = new Date(base.getFullYear(), base.getMonth(), base.getDate(), now.getHours(), now.getMinutes(), 0, 0);
+    // 시간 미리보기
+    function two(n){ return String(n).padStart(2,'0'); }
+    function preview(label){
+      const m = label.match(/^(\d{1,2})/); if(!m) return;
+      const selH = parseInt(m[1],10);
+      const now  = new Date();
+      const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      let start  = new Date(base.getFullYear(), base.getMonth(), base.getDate(), selH, 0, 0, 0);
+      if (now.getHours() === selH && now > start) {
+        start = new Date(base.getFullYear(), base.getMonth(), base.getDate(), now.getHours(), now.getMinutes(), 0, 0);
+      }
+      // end는 '선택한 정시 + 4시간 - 1분'으로 고정 (예: 17:00 → 20:59)
+      let end = new Date(base.getFullYear(), base.getMonth(), base.getDate(), selH + 4, 0, 0, 0);
+      end = new Date(end.getTime() - 60*1000);
+      startEl.textContent = `${two(start.getHours())}:${two(start.getMinutes())}`;
+      endEl.textContent   = `${two(end.getHours())}:${two(end.getMinutes())}`;
     }
-    // end는 '선택한 정시 + 4시간 - 1분'으로 고정 (예: 17:00 → 20:59)
-    let end = new Date(base.getFullYear(), base.getMonth(), base.getDate(), selH + 4, 0, 0, 0);
-    end = new Date(end.getTime() - 60*1000);
-    startEl.textContent = `${two(start.getHours())}:${two(start.getMinutes())}`;
-    endEl.textContent   = `${two(end.getHours())}:${two(end.getMinutes())}`;
-  }
-  modal.querySelectorAll('.time-grid button').forEach(btn=>{
-    btn.addEventListener('click', ()=> preview(btn.textContent.trim()));
+modal.querySelectorAll('.time-grid button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      // 미리보기 유지
+      preview(btn.textContent.trim());
+      // ⬇️ picked 클래스 보장 (seat.js에서도 붙지만 안전망)
+      modal.querySelectorAll('.time-grid button').forEach(b=>b.classList.remove('picked'));
+      btn.classList.add('picked');
+    });
   });
 
-  // 모달 "예약하기" → 기존 seat.js 버튼에 위임
   document.getElementById('rm-go-reserve').addEventListener('click', ()=>{
+    // ⬇️ 시간/학번/비번 가드
+    if (!modal.querySelector('.time-grid button.picked')) {
+      alert('시간대를 선택하세요.'); return;
+    }
+    if (!document.getElementById('rm-student').value.trim() ||
+        !document.getElementById('rm-pw').value.trim()) {
+      alert('학번/비밀번호를 입력하세요.'); return;
+    }
     document.getElementById('btnReserve').click();
     modal.classList.remove('show');
   });
 })();
+  </script>
 </script>
 </body>
 </html>

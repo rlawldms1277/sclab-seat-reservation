@@ -42,34 +42,38 @@
       <div class="status-card">
         <div class="room-box" style="margin-bottom:8px;">907</div>
         <div id="room-907" class="seats-canvas seats-907">
-          <div class="seat fixed"      data-fixed="true" style="left:0px;   top:70px;">고정석</div>
-          <div class="seat available"  data-seat-id="15"  style="left:160px; top:70px;">15</div>
-          <div class="seat available bottom" data-seat-id="16" style="left:0px;">16</div>
-          <div class="seat available bottom" data-seat-id="14" data-seat-label="13" style="left:160px;">13</div>
-        </div>
-      </div>
-    </section>
+      <!-- 상단: 왼쪽은 고정석 유지, 오른쪽은 예약 가능 -->
+      <div class="seat fixed"      data-fixed="true" style="left:0px;   top:60px;">고정석</div>
+      <div class="seat available"  data-seat-id="15"  style="left:160px; top:60px;">12</div>
+      <div class="seat available"  data-seat-id="17"  style="left:0px; top:401px;">15</div>
 
-    <!-- 901 -->
+      <!-- 하단: 왼쪽을 예약 가능, 오른쪽은 기존처럼 13(backend seatId=14) -->
+       <div class="seat available"  data-seat-id="16"  style="left:0px; top:230px;">13</div>
+      <div class="seat available"  data-seat-id="14"  style="left:160px; top:230px;">14</div>
+    </div>
+  </div>
+</section>
+
+
     <section class="map-panel">
-      <div class="room-box">901</div>
-      <div id="room-901" class="seats-canvas">
-        <div class="seat available" data-seat-id="1"  style="left:130px; top:70px;">1</div>
-        <div class="seat available" data-seat-id="2"  style="left:270px; top:70px;">2</div>
-        <div class="seat available" data-seat-id="3"  style="left:130px; top:237px;">3</div>
-        <div class="seat available" data-seat-id="4"  style="left:270px; top:237px;">4</div>
-        <div class="seat available" data-seat-id="5"  style="left:550px; top:70px;">5</div>
-        <div class="seat fixed"     data-fixed="true"      style="left:690px; top:70px;">고정석</div>
-        <div class="seat available" data-seat-id="8"  style="left:690px; top:237px;">8</div>
-        <div class="seat available" data-seat-id="7"  style="left:550px; top:237px;">7</div>
-        <div class="seat available" data-seat-id="9"  style="left:30px;  top:510px;">9</div>
-        <div class="seat available" data-seat-id="10" style="left:200px; top:510px;">10</div>
-        <div class="seat available" data-seat-id="11" style="left:370px; top:510px;">11</div>
-        <div class="seat fixed"     data-fixed="true" data-seat-id="12" style="left:540px; top:510px;">고정석</div>
-        <div class="seat available" data-seat-id="13" style="left:710px; top:510px;">13</div>
-      </div>
-    </section>
-
+    <!-- 901 -->
+    <div class="room-box">901</div>
+    <div id="room-901" class="seats-canvas">
+      <div class="seat available" data-seat-id="1"  style="left:130px; top:70px;">1</div>
+      <div class="seat available" data-seat-id="2"  style="left:270px; top:70px;">2</div>
+      <div class="seat available" data-seat-id="3"  style="left:130px; top:237px;">3</div>
+      <div class="seat available" data-seat-id="4"  style="left:270px; top:237px;">4</div>
+      <div class="seat available" data-seat-id="5"  style="left:550px; top:70px;">5</div>
+      <div class="seat fixed" data-fixed="true" style="left:690px; top:70px;">고정석</div>
+      <div class="seat available" data-seat-id="8"  style="left:690px; top:237px;">7</div>
+      <div class="seat available" data-seat-id="7"  style="left:550px; top:237px;">6</div>
+      <div class="seat available" data-seat-id="9"  style="left:30px;  top:510px;">8</div>
+      <div class="seat available" data-seat-id="10" style="left:200px; top:510px;">9</div>
+      <div class="seat available" data-seat-id="11" style="left:370px; top:510px;">10</div>
+      <div class="seat fixed"     data-fixed="true" data-seat-id="12" style="left:540px; top:510px;">고정석</div>
+      <div class="seat available" data-seat-id="13" style="left:710px; top:510px;">11</div>
+    </div>
+  </section>
     <!-- 우측: 관리자 패널 -->
     <aside class="side-panel admin-panel">
       <div class="hello">
