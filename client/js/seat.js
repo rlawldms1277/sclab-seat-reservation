@@ -1,6 +1,6 @@
 // js/seat.js
 
-import { renderLoggedInUser, requireLogin } from "./user.js";
+import { renderLoggedInUser} from "./user.js";
 
 // ----------------- 서버 주소 -----------------
 const BASE_URL = "https://lab-reserve-backend.onrender.com";
@@ -29,7 +29,7 @@ function displayRange(startISO, endISO){
 function getStudentLabel(rec){
   const raw = rec.raw || {};
   const u = raw.user || raw.User || {};
-  return u.studentId || raw.studentId || u.username || (rec.userId != null ? String(rec.userId) : "-");
+  return rec.studentId || u.studentId || raw.studentId || u.username || (rec.userId != null ? String(rec.userId) : "-");
 }
 
 // 좌석의 '지금 진행 중' 예약(우선) 또는 '다음 예정' 예약 찾기
@@ -89,28 +89,44 @@ async function silentLoginByStudent(studentId, password){
     });
 
     const data = await res.json().catch(()=>null);
-
     if (!res.ok) {
       // 디버깅에 도움 되도록 서버 메시지 보여주기
       const msg = (data && (data.error || data.message)) || `로그인 실패 (${res.status})`;
       return { ok:false, message: msg };
     }
-
     // 토큰/유저 저장(키 이름이 다를 수도 있어 대비)
     const token = data.token || data.accessToken || data.jwt;
     const uid   = data.userId || (data.user && data.user.id);
     // 프런트 로직에서 id가 필요하므로 꼭 채워넣기
     const user  = data.user || { id: uid, studentId: String(studentId).trim() };
     if (token) localStorage.setItem("token", token);
-    if (user)  localStorage.setItem("user", JSON.stringify(user));
 
-    return { ok:true, user: user || null };
+    const u = await hydrateMe();
+    if (!u) {
+      // 최소한 학번은 저장
+      const fallback = { id: data.userId, studentId: String(studentId).trim() };
+      localStorage.setItem("user", JSON.stringify(fallback));
+    }
+    return { ok:true, user: JSON.parse(localStorage.getItem("user")||"null") };
   }catch(e){
     console.error(e);
-    return { ok:false, message: "네트워크 오류" };
+    return { ok:false, message:"네트워크 오류" };
   }
 }
 
+async function hydrateMe(){
+  try{
+    const res = await fetch(`${BASE_URL}/me`, { headers: authHeaders() });
+    const data = await res.json().catch(()=>null);
+    if (!res.ok) return null;
+    const user = data.user || data;
+    if (user) localStorage.setItem("user", JSON.stringify(user));
+    // (선택) 우측 인사말 이름도 갱신
+    const hello = document.getElementById("helloName");
+    if (hello && user) hello.textContent = user.name || user.studentId || user.userId || "사용자";
+    return user;
+  }catch(e){ return null; }
+}
 
 
 
@@ -132,6 +148,13 @@ function authHeaders() {
     ? { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }
     : { "Content-Type": "application/json" };
 }
+
+function syncHelloName(){
+  const u = JSON.parse(localStorage.getItem("user") || "null");
+  const hello = document.getElementById("helloName");
+  if (hello) hello.textContent = (u?.name || u?.studentId || u?.userId || "사용자");
+}
+
 
 // 시간 라벨 "9:00" → 9
 function hourFromLabel(label) {
@@ -318,6 +341,22 @@ async function apiCreateReservation({ seat, startTimeISO, endTimeISO }) {
   }
 }
 
+async function apiCheckin(reservationId){
+  try{
+    const res = await fetch(`${BASE_URL}/reservations/${reservationId}/checkin`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({})
+    });
+    const data = await res.json().catch(()=>null);
+    if (!res.ok) return { ok:false, reason: data?.error || data?.message || "server error" };
+    return { ok:true, rec: data.reservation || data };
+  }catch(e){
+    console.warn("apiCheckin failed:", e);
+    return { ok:false, reason:"network" };
+  }
+}
+
 
 async function apiExtendReservation(reservationId) {
   try {
@@ -366,6 +405,9 @@ function normalizeReservationRaw(raw) {
     seat: seatId != null ? String(seatId) : (seatNumber != null ? String(seatNumber) : null),
     seatId: seatId != null ? String(seatId) : null,
     seatNumber: seatNumber != null ? String(seatNumber) : null,
+
+    studentId: raw.studentId || (raw.user && raw.user.studentId) || (raw.User && raw.User.studentId) || null,
+
     startTime: startDate ? startDate.toISOString() : null,
     endTime: endDate ? endDate.toISOString() : null,
     startHour: startDate ? startDate.getHours() : null,
@@ -403,8 +445,6 @@ function cleanupLocalReservation() {
     }
   } catch (e) {}
 }
-
-
 
 
 // 로컬에 저장된 내 예약(PENDING)을 state.reservations에 합쳐 넣어 새로고침해도 초록 유지
@@ -784,23 +824,23 @@ function bindActions() {
     }
 
     // 3) 예약 생성
-    const apiResult = await apiCreateReservation({
-      seat: state.seat,
-      startTimeISO: startLocal.toISOString(),
-      endTimeISO:   endLocal.toISOString()
-    });
+    const apiResult = await apiCreateReservation({ seat: state.seat, startTimeISO: startLocal.toISOString(), endTimeISO: endLocal.toISOString() });
     if (!apiResult.ok) { alert("예약 실패: " + (apiResult.reason || "서버 오류")); await refreshReservationsForRoom(state.room); return; }
 
-    // 4) 즉시 UI에 반영(오른쪽 카드)
+    // 4) 즉시 체크인 (PIN 없이)
+    const made = normalizeReservationRaw(apiResult.rec);
+    localStorage.setItem("lastReservationId", String(made.id));
+    const chk = await apiCheckin(made.id); // ← 여기서 바로 입실
+    if (!chk.ok) {
+      alert("예약은 생성됐지만 체크인은 실패했습니다. 다시 시도해주세요.");
+    }
+
+    // 5) UI 갱신
     await refreshReservationsForRoom(state.room);
-    renderSelectedSeatInfo(state.seat);  // ← ‘학번 · 9:00~12:59’ 갱신
+    renderSelectedSeatInfo(state.seat);
 
-    // 5) 안내
-    const rec = normalizeReservationRaw(apiResult.rec);
-    const pin = apiResult.pin || rec.pin || "UNKNOWN";
-    alert(`예약 완료! 20분 내 입실해주세요.\n좌석: ${rec.seat}\n시간: ${state.time}\n입실 PIN: ${pin}`);
-
-    // 선택 모드 해제(원하시면 유지 가능)
+    // 6) 안내 (PIN 문구 제거)
+    alert(`예약 및 입실 완료!\n좌석: ${made.seat}\n시간: ${state.time}`);
     setAllowSeatPick(false);
   });
 
@@ -975,6 +1015,8 @@ function bindActions() {
 function init() {
   //requireLogin();       // ✅ 로그인 안 했으면 index.html로 이동
   renderLoggedInUser(); // ✅ 로그인 사용자 아이디 표시
+  if (localStorage.getItem("token") && !localStorage.getItem("user")) { hydrateMe(); }
+  syncHelloName();
 
   setAllowSeatPick(false);          // ✅ 첫 진입은 좌석 선택 불가
 
@@ -992,6 +1034,7 @@ function init() {
     if (["myReservation", "reservationUpdate", "lastReservationId"].includes(ev.key)) {
       refreshReservationsForRoom(state.room);
     }
+     if (["user","token"].includes(ev.key)) syncHelloName(); 
   });
 
    // ✅ 선택(권장): 주기적 새로고침 (중복 방지 가드)

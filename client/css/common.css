@@ -1,6 +1,0 @@
-/* 로그인 상태일 때: 로그인/회원가입 + 모든 구분자 숨김 */
-body.logged-in .main-nav a[href="login.html"],
-body.logged-in .main-nav a[href="signup.html"],
-body.logged-in .main-nav .divider {
-  display: none !important;
-}
