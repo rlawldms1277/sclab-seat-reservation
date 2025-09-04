@@ -149,12 +149,22 @@ function authHeaders() {
     : { "Content-Type": "application/json" };
 }
 
+function clearSession(){
+  ["token","user","lastReservationId","myReservation"].forEach(k =>
+    localStorage.removeItem(k)
+  );
+}
+
+function isAdminUser(u){
+  const c = String(u?.course || "").toUpperCase();
+  return !!u?.isAdmin || ["PROFESSOR","DOCTOR","ADMIN"].includes(c);
+}
+
 function syncHelloName(){
   const u = JSON.parse(localStorage.getItem("user") || "null");
   const hello = document.getElementById("helloName");
   if (hello) hello.textContent = (u?.name || u?.studentId || u?.userId || "사용자");
 }
-
 
 // 시간 라벨 "9:00" → 9
 function hourFromLabel(label) {
@@ -173,6 +183,7 @@ function localDateStr(d) {
 
 function hasMyReservationToday() {
   const user = JSON.parse(localStorage.getItem("user") || "null");
+  if (isAdminUser(user)) return false;
   const myId = user ? Number(user.id) : null;
   if (!myId) return false;
 
@@ -950,8 +961,8 @@ function bindActions() {
       if (!login.ok) { alert(login.message || "로그인 실패"); return; }
     }
 
-    // reservationId: 모달에 저장된 값 → localStorage → 학번으로 조회
-// 1) 모달에 세팅된 값(좌석을 직접 선택했다면)
+  // reservationId: 모달에 저장된 값 → localStorage → 학번으로 조회
+  // 1) 모달에 세팅된 값(좌석을 직접 선택했다면)
   let rid = modal.dataset.reservationId || "";
   // 2) 현재 체크인 중인 내 예약에서 찾기(좌석 미선택이어도 OK)
   if (!rid) {
@@ -966,7 +977,7 @@ function bindActions() {
   if (!rid) {
     rid = await findActiveReservationIdByStudent(sid);
   }
-  
+
   if (!rid) { alert("퇴실할 예약을 찾지 못했습니다."); return; }
 
     const res = await apiCheckout(rid, pw);
@@ -976,6 +987,12 @@ function bindActions() {
     localStorage.setItem("reservationUpdate", Date.now().toString());
     localStorage.removeItem("lastReservationId");
     localStorage.removeItem("myReservation");
+
+    // 🔽 추가: 세션 종료 + 인사말 리셋
+    clearSession();        // token / user 삭제
+    syncHelloName();       // "사용자"로 즉시 반영
+    setAllowSeatPick(false);
+
     close();
     await refreshReservationsForRoom(state.room);
   });
