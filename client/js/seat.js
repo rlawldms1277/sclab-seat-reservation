@@ -42,7 +42,7 @@ function getActiveOrNextReservationForSeat(seatId){
   const list = (state.reservations || []).filter(r =>
     r.startDateOnly === todayStr &&
     String(r.room) === String(state.room) &&
-    String(r.seatId ?? r.seat) === String(seatId) &&
+    isSameSeat(r, seatId) &&
     r.startTime && r.endTime
   );
 
@@ -211,6 +211,16 @@ function hasMyReservationToday() {
   );
 }
 
+
+// 예약 객체 r 과 DOM seatId 를 유연하게 비교
+function isSameSeat(r, seatId){
+  const a = seatId == null ? null : String(seatId);
+  const b = r
+    ? String(r.seatId ?? r.seat ?? r.seatNumber ?? (r.raw && (r.raw.seatId ?? r.raw.seat)))
+    : null;
+  return a !== null && b !== null && a === b;
+}
+
 // seat.js 적당한 곳
 function pubHM(dateLike){ const d=new Date(dateLike); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 function minus1min(dateLike){ return new Date(new Date(dateLike).getTime() - 60*1000); }
@@ -271,10 +281,15 @@ function updateExtendButtonState() {
 }
 
 function getStudentIdFromRec(rec){
+ if (!rec) return null;
+  // ✅ 서버가 내려주는 최상위 studentId(권장)
+  if (rec.studentId) return String(rec.studentId);
+  // 하위(raw)에도 혹시 있으면 대비
   const raw = rec.raw || {};
   const u = raw.user || raw.User || {};
-  return u.studentId || raw.studentId || null;
+  return (u.studentId || raw.studentId) ? String(u.studentId || raw.studentId) : null;
 }
+
 function isNowBetween(stISO, edISO){
   const now = Date.now();
   const st = new Date(stISO).getTime();
@@ -645,7 +660,7 @@ function renderTimeStatusForSeat(seatId) {
     const matches = reservations.filter(r =>
       r.startDateOnly === todayStr && 
       String(r.room) === String(state.room) &&
-      String(r.seatId ?? r.seat) === String(seatId) &&
+      isSameSeat(r, seatId) &&
       r.startHour != null && r.endHourExclusive != null &&
       btnHour >= r.startHour && btnHour < r.endHourExclusive
     );
@@ -708,7 +723,7 @@ function updateSeatUI(room) {
     const isUsedNow = reservations.some(r =>
       r.startDateOnly === todayStr && 
       String(r.room) === String(room) &&
-      String(r.seatId ?? r.seat) === String(seatId) &&
+      isSameSeat(r, seatId) &&
       String(r.status).toUpperCase() === "CHECKED_IN" &&
       r.startTime && r.endTime &&
       new Date(r.startTime) <= now && now < new Date(r.endTime)
@@ -1050,7 +1065,7 @@ function bindActions() {
 
     const nextBlock = (state.reservations || []).some(r => {
       if (String(r.room) !== String(state.room)) return false;
-      if (String(r.seatId ?? r.seat) !== String(base.seatId ?? base.seat)) return false;
+      if (!isSameSeat(r, (base.seatId ?? base.seat ?? base.seatNumber))) return false;
       if (!r.startTime || !r.endTime) return false;
       const st = new Date(r.startTime).getTime();
       const end = new Date(base.endTime).getTime();
