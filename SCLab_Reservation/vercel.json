@@ -1,9 +1,0 @@
-{
-  "installCommand": "pnpm install",
-  "crons": [
-    {
-      "path": "/api/cron/expire-reservations",
-      "schedule": "0 * * * *"
-    }
-  ]
-}
